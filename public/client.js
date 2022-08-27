@@ -366,7 +366,7 @@
                 // vx: 0,
                 // vy: 0,
                 angle: gameState.players[0].angle,
-                bounces: 20
+                bounces: 10
             }
 
             gameState.players[0].projectiles.push(projectile);
@@ -383,10 +383,15 @@
         window.addEventListener("resize", e => {
             resizeCanvas();
         });
+
+        addEventListener("pagehide", e => {
+            socket.disconnect();
+        });
     }
 
     function playerHit(player, attacker) {
-        if (player.health) player.health -= (attacker.scroll == 3) ? 20 : 10;
+        if (!player.health) return;
+        player.health -= (attacker.scroll == 3) ? 20 : 10;
         if (!player.health) {
             respawnTime = Date.now();
             // player.pwnedBy = attacker.username;
