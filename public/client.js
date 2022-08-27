@@ -41,6 +41,11 @@
     const spriteSize = 16;
     const projectileSize = 5;
 
+    let items = [];
+    const msg = {txt: "", time: 0};
+    const scrolls = ["","bounciness","multiball","double damage"];
+    const respawnPoints = [{x: 80, y: 64},{x: 416, y: 64},{x: 80, y: 416},{x: 416, y: 416}];
+
     const map = {
         cols: 32,
         rows: 32,
@@ -96,16 +101,16 @@
             // Bottom wall
             if (tile == 1 + 4) return {x: 16, y: 48};
             // Top wall
-            if (tile == 8 + 4) return {x: 64, y: 48};//
+            if (tile == 8 + 4) return {x: 64, y: 48};
             
             // Floor at top and left
             if (tile == 3 + 4) return {x: 80, y: 32};
             // Floor at top and right
             if (tile == 5 + 4) return {x: 0, y: 32};
             // Floor at bottom and right
-            if (tile == 12 + 4) return {x: 80, y: 48};//
+            if (tile == 12 + 4) return {x: 80, y: 48};
             // Floor bottom and left
-            if (tile == 10 + 4) return {x: 48, y: 48};//
+            if (tile == 10 + 4) return {x: 48, y: 48};
             
             // Floor bottom right
             if (tile == 128 + 4) return {x: 0, y: 48};
@@ -154,6 +159,9 @@
                 // maxV: 1,
                 // friction: 0.97,
                 // color: '#ae83c3',
+                scroll: 0, // which magic scroll is active
+                pwnedBy: "",
+                pwned: "",
                 health: 100,
                 facing: 1,
                 frame: 0,
@@ -172,7 +180,6 @@
     }
 
     const myPlayerId = gameState.players[0].playerId;
-    // console.log(gameState.players[0].x,  gameState.players[0].y)
 
     function resizeCanvas() {
         if (window.innerWidth < gameWidth || window.innerHeight < gameHeight) {
@@ -200,69 +207,15 @@
         // ctx.putImageData(scaleImageData(bCtx.getImageData(0, 0, bCanvas.width, bCanvas.height), Math.floor(canvas.width / bCanvas.width)), 0, 0);
     }
 
-    function scaleImageData(imageData, scale) {
-        if (scale == 1) return imageData;
-        var scaled = ctx.createImageData(imageData.width * scale, imageData.height * scale);
-        var subLine = ctx.createImageData(scale, 1).data
-        for (var row = 0; row < imageData.height; row++) {
-            for (var col = 0; col < imageData.width; col++) {
-                var sourcePixel = imageData.data.subarray(
-                    (row * imageData.width + col) * 4,
-                    (row * imageData.width + col) * 4 + 4
-                );
-                for (var x = 0; x < scale; x++) subLine.set(sourcePixel, x*4)
-                for (var y = 0; y < scale; y++) {
-                    var destRow = row * scale + y;
-                    var destCol = col * scale;
-                    scaled.data.set(subLine, (destRow * scaled.width + destCol) * 4)
-                }
-            }
-        }
-    
-        return scaled;
-    }
+    var rotateVector = function(vec, ang) {
+        ang = -ang * (Math.PI/180);
+        var cos = Math.cos(ang);
+        var sin = Math.sin(ang);
+        return new Array(Math.round(10000*(vec[0] * cos - vec[1] * sin))/10000, Math.round(10000*(vec[0] * sin + vec[1] * cos))/10000);
+    };
 
     /**
-     * Disable all button
-     */
-    function disableButtons() {
-        for (let i = 0; i < buttons.length; i++) {
-            buttons[i].setAttribute("disabled", "disabled");
-        }
-    }
-
-    /**
-     * Enable all button
-     */
-    function enableButtons() {
-        for (let i = 0; i < buttons.length; i++) {
-            buttons[i].removeAttribute("disabled");
-        }
-    }
-
-    /**
-     * Set message text
-     * @param {string} text
-     */
-    function setMessage(text) {
-        message.innerHTML = text;
-    }
-
-    /**
-     * Set score text
-     * @param {string} text
-     */
-    function displayScore(text) {
-        score.innerHTML = [
-            "<h2>" + text + "</h2>",
-            "Won: " + points.win,
-            "Lost: " + points.lose,
-            "Draw: " + points.draw
-        ].join("<br>");
-    }
-
-    /**
-     * Bind Socket.IO and button events
+     * Bind Socket.IO and events
      */
     function bind() {
 
@@ -331,12 +284,18 @@
             }
         });
 
-        socket.on('stateUpdate', function (player) {
+        // socket.on('itemUpdate', function (updateItems) {
+        //     items = updateItems;
+        // });
+
+        socket.on('stateUpdate', function (player, updateItems) {
+            items = updateItems;
+
             if (player.playerId === myPlayerId) {
                 // ignore own update
                 return;
             }
-        
+
             let playerWasFound = false;
             for (let i = 0; i < gameState.players.length; ++i) {
                 if (gameState.players[i].playerId === player.playerId) {
@@ -406,10 +365,19 @@
                 vy: dy * projectileSpeed,
                 // vx: 0,
                 // vy: 0,
-                angle: gameState.players[0].angle
+                angle: gameState.players[0].angle,
+                bounces: 20
             }
-    
+
             gameState.players[0].projectiles.push(projectile);
+            
+            // If player has the multiball magic scroll
+            if (gameState.players[0].scroll == 2) {
+                let multi = rotateVector([dx, dy], 10);
+                gameState.players[0].projectiles.push({x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
+                multi = rotateVector([dx, dy], -10);
+                gameState.players[0].projectiles.push({x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
+            }
         });
 
         window.addEventListener("resize", e => {
@@ -417,9 +385,32 @@
         });
     }
 
-    function playerHit(player) {
-        if (player.health) player.health -= 10;
-        if (!player.health) respawnTime = Date.now();
+    function playerHit(player, attacker) {
+        if (player.health) player.health -= (attacker.scroll == 3) ? 20 : 10;
+        if (!player.health) {
+            respawnTime = Date.now();
+            // player.pwnedBy = attacker.username;
+            // attacker.pwned = player.username;
+            if (gameState.players.indexOf(attacker) == 0) {
+            // if (gameState.players[0].pwned.length) {
+                msg.txt = "Pwnage! " + player.username + " is out for the count!";
+                msg.time = Date.now();
+                // gameState.players[0].pwned = "";
+            }
+            if (gameState.players.indexOf(player) == 0) {
+                msg.txt = "Oh no! " + attacker.username + " just pwned you!";
+                msg.time = Date.now();
+            }
+        }
+    }
+
+    function rectCollision(rect1x, rect1y, rect1w, rect1h, rect2x, rect2y, rect2w, rect2h) {
+        return (
+            rect1x < rect2x + rect2w &&
+            rect1x + rect1w > rect2x &&
+            rect1y < rect2y + rect2h &&
+            rect1h + rect1y > rect2y
+        );
     }
 
     function gameUpdate() {
@@ -441,12 +432,56 @@
                     }
                 }
                 // Check for collision with walls
-                if (!map.canMoveToXY(p.x, p.y) || !map.canMoveToXY(p.x + projectileSize, p.y) || !map.canMoveToXY(p.x, p.y + projectileSize) || !map.canMoveToXY(p.x + projectileSize, p.y + projectileSize)) p.remove = true;
+                if (!map.canMoveToXY(p.x, p.y) || !map.canMoveToXY(p.x + projectileSize, p.y) || !map.canMoveToXY(p.x, p.y + projectileSize) || !map.canMoveToXY(p.x + projectileSize, p.y + projectileSize)) {
+                    // If player has magic scroll 1 and the projectile still has bounces left
+                    if (gameState.players[i].scroll == 1 && --p.bounces) {
+                        // if (!--p.bounces) p.remove = true;
+                        if (p.vx > 0) {
+                            if (!map.canMoveToXY(p.x, p.y) || !map.canMoveToXY(p.x, p.y + projectileSize)) {
+                                p.vy *= -1;
+                            } else {
+                                p.vx *= -1;
+                            }
+                        } else {
+                            if (!map.canMoveToXY(p.x + projectileSize, p.y) || !map.canMoveToXY(p.x + projectileSize, p.y + projectileSize)) {
+                                p.vy *= -1;
+                            } else {
+                                p.vx *= -1;
+                            }
+                        }
+                    } else {
+                        p.remove = true;
+                    }
+                }
             });
             gameState.players[i].projectiles = gameState.players[i].projectiles.filter(p => {
                 return (p.remove !== true);
             });
         // });
+        }
+
+        // Check for player collision with item
+        let itemIdClaimed = -1;
+        for (let i = 0; i < items.length; i++) {
+            // We picked up an item
+            if (rectCollision(gameState.players[0].x, gameState.players[0].y,spriteSize, spriteSize, items[i].x, items[i].y, spriteSize, spriteSize)) {
+                // console.log("Collision with item: " + items[i].type);
+                // Potion
+                if (items[i].type == 1) {
+                    gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
+                    msg.txt = "Potion restores health";
+                    msg.time = Date.now();
+                }
+                // Scroll
+                else if (items[i].type > 1) {
+                    gameState.players[0].scroll = items[i].type - 1;
+                    msg.txt = "You picked up a scroll of " + scrolls[items[i].type - 1];
+                    msg.time = Date.now();
+                }
+                items[i].type = 0;
+                itemIdClaimed = items[i].id;
+                // socket.volatile.emit('itemUpdate', items[i].id);
+            }
         }
 
         // Move player
@@ -510,7 +545,7 @@
         // TODO: Min and max to keep viewport within map/in map corners allow player to move from screen center?
 
         // Update the server with the new state
-        socket.volatile.emit('stateUpdate', gameState.players[0]);
+        socket.volatile.emit('stateUpdate', gameState.players[0], itemIdClaimed);
     }
 
     function gameRender() {
@@ -543,6 +578,7 @@
         // bCtx.fillStyle = "rgb(240, 240, 240)";
         // bCtx.fillText("Mouse: " + mouse.x + ", " + mouse.y + " Player: " + gameState.players[0].x + ", " + gameState.players[0].y, 5, 10);
 
+        // Render players and their projectiles
         gameState.players.forEach(player => {
             renderPlayer(player);
             player.projectiles.forEach(projectile => {
@@ -550,6 +586,19 @@
             });
         });
 
+        // Render items
+        // console.log(items);
+        items.forEach(item => {
+            if (!item.type) return; // No item at spawn point
+            let d = {x: 32, y: 16}; // Scroll
+            if (item.type == 1) d.x = 48; // Potion
+            bCtx.drawImage(sprites, d.x, d.y, spriteSize, spriteSize, item.x - gameState.viewport.x, item.y - gameState.viewport.y, spriteSize, spriteSize);
+        });
+
+        if (msg.txt) {
+            if (Date.now() > msg.time + 3000) msg.txt = "";
+            write(msg.txt, gameWidth / 2, 5, '#fff', 1, 1);
+        };
         renderStats();
 
         blit();
@@ -600,17 +649,17 @@
     }
     
     function respawn(player) {
+        if (gameState.players.indexOf(player) !== 0) return;
         const now = Date.now();
         let t = 3;
         if (now - respawnTime > 1000) t = 2;
         if (now - respawnTime > 2000) t = 1;
         if (now - respawnTime > 3000) t = 0;
         if (t) {
-            if (gameState.players.indexOf(player) === 0) write("Respawn in... " + t, gameWidth / 2, gameHeight / 5, '#fff', 2, 1);
+            write("Respawn in... " + ((t == 1) ? " " + t : t), gameWidth / 2, gameHeight / 5, '#fff', 2, 1);
             // console.log("Respawn in " + t);
         } else {
             // console.log("Respawn");
-            const respawnPoints = [{x: 80, y: 64},{x: 416, y: 64},{x: 80, y: 416},{x: 416, y: 416}];
             const r = Math.floor(Math.random() * 3);
             player.health = 100;
             player.x = respawnPoints[r].x;

@@ -161,6 +161,27 @@ class User {
 
 }
 
+const items = [];
+const itemSpawnPoints = [{x: 16, y: 16},{x: 480, y: 16},{x: 16, y: 480},{x: 480, y: 480}];
+
+
+function spawnItems() {
+    if (!items.length) itemSpawnPoints.forEach((spawnPoint, i) => {
+        items.push({
+            id: i,
+            type: (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 3) + 2,
+            x: spawnPoint.x,
+            y: spawnPoint.y,
+            time: Date.now()
+        });
+    });
+    items.forEach(item => {
+        if (!item.type && Date.now() > item.time + 5000) item.type = (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 3) + 2;
+    });
+    io.sockets.emit('itemUpdate', items);
+    setTimeout(spawnItems, 5000);
+}
+
 /**
  * Socket.IO on connect event
  * @param {Socket} socket
@@ -193,16 +214,40 @@ module.exports = {
         // });
         
         // console.log("Connected: " + socket.id);
+
+        spawnItems();
         
         socket.on("disconnect", () => {
             io.sockets.emit('playerDisconnect', socket.id);
         });
 
-
-        socket.on("stateUpdate", (player) => {
+        socket.on("stateUpdate", (player, id) => {
             // console.log('got state update', player)
-            io.sockets.emit('stateUpdate', player);
+            var i = items.findIndex(function(o){
+                return o.id === id;
+            });
+            if (i !== -1) {
+                items[i].time = Date.now();
+                items[i].type = 0;
+            }
+
+            io.sockets.emit('stateUpdate', player, items);
         });
+
+        // socket.on("itemUpdate", (id) => {
+        //     // console.log('got state update', player)
+        //     var i = items.findIndex(function(o){
+        //         return o.id === id;
+        //     })
+
+        //     // if (i !== -1) items.splice(i, 1);
+        //     if (i !== -1) {
+        //         items[i].time = Date.now();
+        //         items[i].type = 0;
+        //     }
+
+        //     io.sockets.emit('itemUpdate', items);
+        // });
     },
 
     // stat: (req, res) => {
