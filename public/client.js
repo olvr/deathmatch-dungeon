@@ -40,10 +40,11 @@
     const projectileSpeed = 2;
     const spriteSize = 16;
     const projectileSize = 5;
+    const maxRunes = 12;
 
     let items = [];
     const msg = {txt: "", time: 0};
-    const scrolls = ["","bounciness","multiball","double damage"];
+    const scrolls = ["","ricochet","split shot","double damage","runic hex"];
     const respawnPoints = [{x: 80, y: 64},{x: 416, y: 64},{x: 80, y: 416},{x: 416, y: 416}];
 
     const map = {
@@ -88,6 +89,7 @@
             return this.tiles[row * this.cols + col];
         },
         canMoveToXY: function(x, y) {
+            if (x < 0 || x > this.cols * this.tileSize || y < 0 || y > this.rows * this.tileSize) return;
             let tile = this.getTile(Math.floor(x / this.tileSize), Math.floor(y / this.tileSize));
             return (tile < 1 || tile > 4) ? false : true;
         },
@@ -153,21 +155,21 @@
                 // x: Math.floor((Math.random() * gameWidth) - spriteSize), y: Math.floor((Math.random() * gameHeight) - spriteSize),
                 x: 32,
                 y: 32,
+                hit: 0,
                 // vx: 0,
                 // vy: 0,
                 // a: 1.05,
                 // maxV: 1,
                 // friction: 0.97,
                 // color: '#ae83c3',
-                scroll: 0, // which magic scroll is active
-                pwnedBy: "",
-                pwned: "",
+                scroll: 4, // which magic scroll is active
                 health: 100,
                 facing: 1,
                 frame: 0,
                 walking: 0,
                 angle: 0,
-                projectiles: []
+                projectiles: [],
+                runes: []
             }
         ],
         viewport: {
@@ -343,7 +345,29 @@
     
         document.addEventListener("mousedown", e => {
             if (e.buttons != 1 || !gameState.players[0].health) return; // LMB is 1
-            // if (!document.hasFocus()) console.log("not active");
+            // If rune scroll
+            if (gameState.players[0].scroll == 4) {
+                let runeX = gameState.viewport.x + mouse.x;
+                let runeY = gameState.viewport.y + mouse.y;
+                runeX -= runeX % map.tileSize;
+                runeY -= runeY % map.tileSize;
+
+                // Don't allow runes to be placed will immediate collision
+                for (let j = 1; j < gameState.players.length; j++) {
+                    if (rectCollision(gameState.players[j].x, gameState.players[j].y, spriteSize, spriteSize,runeX, runeY, spriteSize, spriteSize)) {
+                        return;
+                    }
+                }
+
+                // Only place runes on floor tiles
+                if (map.canMoveToXY(runeX, runeY)) {
+                    console.log(runeX, runeY);
+                    if (gameState.players[0].runes.length >= maxRunes) gameState.players[0].runes.splice(0, 1);
+                    gameState.players[0].runes.push({x: runeX, y: runeY});
+                }
+                return;
+            }
+
             // Distance from mouse click to center of player sprite
             let dx = mouse.x - (gameState.players[0].x - gameState.viewport.x) + spriteSize / 2 - spriteSize;
             let dy = mouse.y - (gameState.players[0].y - gameState.viewport.y) + spriteSize / 2 - spriteSize;
@@ -387,15 +411,20 @@
         addEventListener("pagehide", e => {
             socket.disconnect();
         });
+
+        // document.addEventListener("visibilitychange", () => {
+        //     if (document.visibilityState !== 'visible') {
+        //         // Disconnect?
+        //     }
+        // });
     }
 
     function playerHit(player, attacker) {
         if (!player.health) return;
+        player.hit = 20;
         player.health -= (attacker.scroll == 3) ? 20 : 10;
         if (!player.health) {
             respawnTime = Date.now();
-            // player.pwnedBy = attacker.username;
-            // attacker.pwned = player.username;
             if (gameState.players.indexOf(attacker) == 0) {
             // if (gameState.players[0].pwned.length) {
                 msg.txt = "Pwnage! " + player.username + " is out for the count!";
@@ -427,7 +456,7 @@
                 p.y += p.vy;
                 // Check for collision with players
                 for (let j = 0; j < gameState.players.length; j++) {
-                    if (i == j) continue; // Don't check own projectiles
+                    // if (i == j) continue; // Don't check own projectiles
                     if (p.x < gameState.players[j].x + spriteSize
                         && p.x + projectileSize > gameState.players[j].x
                         && p.y < gameState.players[j].y + spriteSize
@@ -440,7 +469,6 @@
                 if (!map.canMoveToXY(p.x, p.y) || !map.canMoveToXY(p.x + projectileSize, p.y) || !map.canMoveToXY(p.x, p.y + projectileSize) || !map.canMoveToXY(p.x + projectileSize, p.y + projectileSize)) {
                     // If player has magic scroll 1 and the projectile still has bounces left
                     if (gameState.players[i].scroll == 1 && --p.bounces) {
-                        // if (!--p.bounces) p.remove = true;
                         if (p.vx > 0) {
                             if (!map.canMoveToXY(p.x, p.y) || !map.canMoveToXY(p.x, p.y + projectileSize)) {
                                 p.vy *= -1;
@@ -462,6 +490,19 @@
             gameState.players[i].projectiles = gameState.players[i].projectiles.filter(p => {
                 return (p.remove !== true);
             });
+            // Collision with runes
+            gameState.players[i].runes.forEach(r => {
+                for (let j = 0; j < gameState.players.length; j++) {
+                    if (i == j) continue; // Don't check own runes
+                    if (rectCollision(gameState.players[j].x, gameState.players[j].y, spriteSize, spriteSize, r.x, r.y, spriteSize, spriteSize)) {
+                        playerHit(gameState.players[j], gameState.players[i]);
+                        r.remove = true;
+                    }
+                }
+            });
+            gameState.players[i].runes = gameState.players[i].runes.filter(r => {
+                return (r.remove !== true);
+            });
         // });
         }
 
@@ -470,7 +511,6 @@
         for (let i = 0; i < items.length; i++) {
             // We picked up an item
             if (rectCollision(gameState.players[0].x, gameState.players[0].y,spriteSize, spriteSize, items[i].x, items[i].y, spriteSize, spriteSize)) {
-                // console.log("Collision with item: " + items[i].type);
                 // Potion
                 if (items[i].type == 1) {
                     gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
@@ -485,69 +525,40 @@
                 }
                 items[i].type = 0;
                 itemIdClaimed = items[i].id;
-                // socket.volatile.emit('itemUpdate', items[i].id);
             }
         }
 
-        // Move player
         let p = gameState.players[0];
-        if (!p.health) return;
-        p.walking = 0;
-        // We are always the first element in our players array
-        if ((keyboardState.w || keyboardState.ArrowUp) && map.canMoveToXY(p.x, p.y - playerSpeed) && map.canMoveToXY(p.x + spriteSize - 1, p.y - playerSpeed)){
-            p.y -= playerSpeed;
-            p.walking = 1;
-            // if (p.vy == 0) p.vy = -0.2;
-            // if (p.vy > -p.maxV) p.vy *= p.a;
-        }
-        
-        if (keyboardState.a || keyboardState.ArrowLeft && map.canMoveToXY(p.x - playerSpeed, p.y) && map.canMoveToXY(p.x - playerSpeed, p.y + spriteSize - 1)) {
-            p.x -= playerSpeed;
-            p.walking = 1;
-            // if (!(keyboardState.d || keyboardState.ArrowRight)) {
-                //     if (p.vx == 0) p.vx = -0.2;
-                //     if (p.vx > -p.maxV) p.vx *= p.a;
-                // }
+        if (p.health) {
+            // Move player - we are always the first element in our players array
+            p.walking = 0;
+            if ((keyboardState.w || keyboardState.ArrowUp) && map.canMoveToXY(p.x, p.y - playerSpeed) && map.canMoveToXY(p.x + spriteSize - 1, p.y - playerSpeed)){
+                p.y -= playerSpeed;
+                p.walking = 1;
             }
             
-            if (keyboardState.s || keyboardState.ArrowDown && map.canMoveToXY(p.x, p.y + playerSpeed + spriteSize - 1) && map.canMoveToXY(p.x + spriteSize - 1, p.y + playerSpeed + spriteSize - 1)) {
+            if ((keyboardState.a || keyboardState.ArrowLeft) && map.canMoveToXY(p.x - playerSpeed, p.y) && map.canMoveToXY(p.x - playerSpeed, p.y + spriteSize - 1)) {
+                p.x -= playerSpeed;
+                p.walking = 1;
+            }
+                
+            if ((keyboardState.s || keyboardState.ArrowDown) && map.canMoveToXY(p.x, p.y + playerSpeed + spriteSize - 1) && map.canMoveToXY(p.x + spriteSize - 1, p.y + playerSpeed + spriteSize - 1)) {
                 p.y += playerSpeed;
                 p.walking = 1;
-                // if (p.vy == 0) p.vy = 0.2;
-                // if (p.vy < p.maxV) p.vy *= p.a;
             }
-            
-            if (keyboardState.d || keyboardState.ArrowRight && map.canMoveToXY(p.x + playerSpeed + spriteSize - 1, p.y) && map.canMoveToXY(p.x + playerSpeed + spriteSize - 1, p.y + spriteSize - 1)) {
+                
+            if ((keyboardState.d || keyboardState.ArrowRight) && map.canMoveToXY(p.x + playerSpeed + spriteSize - 1, p.y) && map.canMoveToXY(p.x + playerSpeed + spriteSize - 1, p.y + spriteSize - 1)) {
                 p.x += playerSpeed;
                 p.walking = 1;
-            // if (!(keyboardState.a || keyboardState.ArrowLeft)) {
-            //     if (p.vx == 0) p.vx = 0.2;
-            //     if (p.vx < p.maxV) p.vx *= p.a;
-            // }
+            }
+
+            // Move to the next walking frame or idle
+            p.frame = (p.frame < 3 && p.walking) ? p.frame += 0.075 : 0;
         }
 
-        // Move to the next walking frame or idle
-        p.frame = (p.frame < 3 && p.walking) ? p.frame += 0.075 : 0;
-
-        // if (p.vx != 0) p.vx *= p.friction;
-        // if ((p.vx > 0 && p.vx < 0.2) || (p.vx < 0 && p.vx > -0.2)) p.vx = 0; 
-        // p.x += p.vx;
-
-        // if (p.vy != 0) p.vy *= p.friction;
-        // if ((p.vy > 0 && p.vy < 0.2) || (p.vy < 0 && p.vy > -0.2)) p.vy = 0; 
-        // p.y += p.vy;
-
-        // if (gameState.players.length > 1) gameState.viewport.following = gameState.players[1];
-
-        // Move viewport
-        // Player being followed should default to screen center
-        // gameState.viewport.following.screen.x = (gameWidth / 2) - spriteSize / 2;    
-        // gameState.viewport.following.screen.y = (gameHeight / 2) - spriteSize / 2; 
-
-        // Make viewport offset of player world position
+        // Move viewport offset to follow player
         gameState.viewport.x = gameState.viewport.following.x - (gameWidth / 2) + spriteSize / 2;
         gameState.viewport.y = gameState.viewport.following.y - (gameHeight / 2) + spriteSize / 2;
-        // TODO: Min and max to keep viewport within map/in map corners allow player to move from screen center?
 
         // Update the server with the new state
         socket.volatile.emit('stateUpdate', gameState.players[0], itemIdClaimed);
@@ -585,7 +596,13 @@
 
         // Render players and their projectiles
         gameState.players.forEach(player => {
+            // Render the runes
+            player.runes.forEach(rune => {
+                bCtx.drawImage(sprites, 64, 16, spriteSize, spriteSize, rune.x - gameState.viewport.x, rune.y - gameState.viewport.y, spriteSize, spriteSize);
+            });
+            // Render the character
             renderPlayer(player);
+            // Render the projectiles
             player.projectiles.forEach(projectile => {
                 renderProjectile(projectile);
             });
@@ -667,6 +684,7 @@
             // console.log("Respawn");
             const r = Math.floor(Math.random() * 3);
             player.health = 100;
+            player.scroll = 0;
             player.x = respawnPoints[r].x;
             player.y = respawnPoints[r].y;
         }
@@ -687,7 +705,15 @@
                 bCtx.translate((player.x - gameState.viewport.x) * 2 + spriteSize, 0);
                 bCtx.scale(-1, 1);
             }
-            bCtx.drawImage(sprites, Math.floor(player.frame) * spriteSize, 0, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
+            
+            let dx = Math.floor(player.frame) * spriteSize;
+            let dy = 0;
+            if (player.hit) {
+                player.hit -= 1;;
+                dx = spriteSize;
+                dy = spriteSize;
+            }
+            bCtx.drawImage(sprites, dx, dy, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
             bCtx.restore();
         }
         
