@@ -172,7 +172,7 @@ function spawnItems() {
     if (!items.length) itemSpawnPoints.forEach((spawnPoint, i) => {
         items.push({
             id: i,
-            type: (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 3) + 2,
+            type: (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 4) + 2,
             x: spawnPoint.x,
             y: spawnPoint.y,
             time: Date.now()
