@@ -179,7 +179,7 @@ function spawnItems() {
         });
     });
     items.forEach(item => {
-        if (!item.type && Date.now() > item.time + 5000) item.type = (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 3) + 2;
+        if (!item.type && Date.now() > item.time + 5000) item.type = (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 4) + 2;
     });
     io.sockets.emit('itemUpdate', items);
 

@@ -336,7 +336,7 @@
         
         document.addEventListener("keyup", e => {
             if (chat.active) {
-                let regex = /^[A-Za-z0-9]$/;
+                let regex = /^[A-Za-z0-9\s]$/;
                 if (e.key.match(regex)) {
                     if (chat.txt.length < 20) chat.txt = chat.txt + e.key;
                 }
