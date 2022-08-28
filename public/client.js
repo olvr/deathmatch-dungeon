@@ -11,8 +11,13 @@
     //         win: 0,
     //         lose: 0
     //     };
-
     let socket;
+    let connected;
+    let chat = {
+        active: false,
+        chats: [],
+        txt: ""
+    };
     let fps = 120;
     let oldTimeStamp = 0;
     let respawnTime = 0;
@@ -41,6 +46,7 @@
     const spriteSize = 16;
     const projectileSize = 5;
     const maxRunes = 12;
+    const startBounces = 10;
 
     let items = [];
     const msg = {txt: "", time: 0};
@@ -162,7 +168,7 @@
                 // maxV: 1,
                 // friction: 0.97,
                 // color: '#ae83c3',
-                scroll: 4, // which magic scroll is active
+                scroll: 0, // which magic scroll is active
                 health: 100,
                 facing: 1,
                 frame: 0,
@@ -270,11 +276,12 @@
     //         })(buttons[i], i + 1);
     //     }
 
-        socket = io({ 'sync disconnect on unload': true, upgrade: false, transports: ["websocket"] });
+        socket = io({'sync disconnect on unload': true, upgrade: false, transports: ["websocket"] });
 
         // We have connected so set our sessionId as our socket.id
         socket.on('connect', function() {
             console.log("Connected: " + socket.id);
+            connected = true;
             gameState.players[0].sessionId = socket.id;
         });
 
@@ -286,9 +293,9 @@
             }
         });
 
-        // socket.on('itemUpdate', function (updateItems) {
-        //     items = updateItems;
-        // });
+        socket.on('chat', function (updateChat) {
+            chat.chats = updateChat;
+        });
 
         socket.on('stateUpdate', function (player, updateItems) {
             items = updateItems;
@@ -320,15 +327,37 @@
         });
 
         document.addEventListener("keydown", e => {
-            keyboardState[e.key] = true;
-            if (keyboardState.w || keyboardState.a || keyboardState.s || keyboardState.d || keyboardState.ArrowLeft || keyboardState.d || keyboardState.ArrowRight || keyboardState.ArrowUp || keyboardState.ArrowDown) {
-                e.stopPropagation();
-                e.preventDefault();
-            }
+            if (!chat.active) keyboardState[e.key] = true;
+            // if (keyboardState.w || keyboardState.a || keyboardState.s || keyboardState.d || keyboardState.ArrowLeft || keyboardState.d || keyboardState.ArrowRight || keyboardState.ArrowUp || keyboardState.ArrowDown) {
+            //     e.stopPropagation();
+            //     e.preventDefault();
+            // }
         });
         
         document.addEventListener("keyup", e => {
-            keyboardState[e.key] = false;
+            if (chat.active) {
+                let regex = /^[A-Za-z0-9]$/;
+                if (e.key.match(regex)) {
+                    if (chat.txt.length < 20) chat.txt = chat.txt + e.key;
+                }
+                if (e.key == "Escape") chat.active = false;
+                if (e.key == "Backspace" && chat.txt.length) chat.txt = chat.txt.substring(0, chat.txt.length - 1);
+                if (e.key == "Enter") {
+                    if (chat.txt.length) {
+                        socket.emit("chat", gameState.players[0].username + ": " + chat.txt);
+                        chat.active = false;
+                        chat.txt = "";
+                    } else {
+                        chat.active = false;
+                    }
+                }
+            } else {
+                if (e.key == "Enter") {
+                    chat.active = true;
+                } else {
+                    keyboardState[e.key] = false;
+                }
+            }
         });
     
         document.addEventListener("mousemove", e => {
@@ -344,7 +373,7 @@
         });
     
         document.addEventListener("mousedown", e => {
-            if (e.buttons != 1 || !gameState.players[0].health) return; // LMB is 1
+            if (e.buttons != 1 || gameState.players[0].health <= 0) return; // LMB is 1
             // If rune scroll
             if (gameState.players[0].scroll == 4) {
                 let runeX = gameState.viewport.x + mouse.x;
@@ -365,7 +394,6 @@
                     if (gameState.players[0].runes.length >= maxRunes) gameState.players[0].runes.splice(0, 1);
                     gameState.players[0].runes.push({x: runeX, y: runeY});
                 }
-                return;
             }
 
             // Distance from mouse click to center of player sprite
@@ -390,12 +418,12 @@
                 // vx: 0,
                 // vy: 0,
                 angle: gameState.players[0].angle,
-                bounces: 10
+                bounces: startBounces
             }
 
-            gameState.players[0].projectiles.push(projectile);
+            if (gameState.players[0].scroll != 4) gameState.players[0].projectiles.push(projectile);
             
-            // If player has the multiball magic scroll
+            // If player has the split shot magic scroll
             if (gameState.players[0].scroll == 2) {
                 let multi = rotateVector([dx, dy], 10);
                 gameState.players[0].projectiles.push({x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
@@ -420,10 +448,11 @@
     }
 
     function playerHit(player, attacker) {
-        if (!player.health) return;
+        if (player.health <= 0) return;
         player.hit = 20;
         player.health -= (attacker.scroll == 3) ? 20 : 10;
-        if (!player.health) {
+        if (player.health <= 0) {
+            player.health = 0;
             respawnTime = Date.now();
             if (gameState.players.indexOf(attacker) == 0) {
             // if (gameState.players[0].pwned.length) {
@@ -456,7 +485,8 @@
                 p.y += p.vy;
                 // Check for collision with players
                 for (let j = 0; j < gameState.players.length; j++) {
-                    // if (i == j) continue; // Don't check own projectiles
+                    // if (i == j && gameState.players[j].scroll != 1 && p.bounces == startBounces) continue; // Don't check own projectiles unless it's ricochet
+                    if (i == j) continue; // Don't check own projectiles unless it's ricochet
                     if (p.x < gameState.players[j].x + spriteSize
                         && p.x + projectileSize > gameState.players[j].x
                         && p.y < gameState.players[j].y + spriteSize
@@ -529,7 +559,7 @@
         }
 
         let p = gameState.players[0];
-        if (p.health) {
+        if (p.health > 0) {
             // Move player - we are always the first element in our players array
             p.walking = 0;
             if ((keyboardState.w || keyboardState.ArrowUp) && map.canMoveToXY(p.x, p.y - playerSpeed) && map.canMoveToXY(p.x + spriteSize - 1, p.y - playerSpeed)){
@@ -561,7 +591,7 @@
         gameState.viewport.y = gameState.viewport.following.y - (gameHeight / 2) + spriteSize / 2;
 
         // Update the server with the new state
-        socket.volatile.emit('stateUpdate', gameState.players[0], itemIdClaimed);
+        if (connected) socket.volatile.emit('stateUpdate', gameState.players[0], itemIdClaimed);
     }
 
     function gameRender() {
@@ -621,6 +651,19 @@
             if (Date.now() > msg.time + 3000) msg.txt = "";
             write(msg.txt, gameWidth / 2, 5, '#fff', 1, 1);
         };
+        
+        // Render chat dialog
+        if (chat.active) {
+            write("Chat: " + chat.txt, 2, 15, '#fff', 1);
+        }
+
+        // Render chats
+        if (chat.chats && chat.chats.length) {
+            for (let i = 0; i < chat.chats.length; i++) { 
+                write(chat.chats[chat.chats.length - 1 - i], 2, 174 - i * 7, '#fff', 1);
+            }
+        }
+
         renderStats();
 
         blit();
@@ -685,6 +728,7 @@
             const r = Math.floor(Math.random() * 3);
             player.health = 100;
             player.scroll = 0;
+            player.hit = 0;
             player.x = respawnPoints[r].x;
             player.y = respawnPoints[r].y;
         }
@@ -695,7 +739,7 @@
         // bCtx.fillStyle = "rgb(255, 255, 0)";
         // bCtx.fillRect(player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
         
-        if (!player.health) {
+        if (player.health <= 0) {
             bCtx.drawImage(sprites, 0, spriteSize, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
             respawn(player);
         } else {
