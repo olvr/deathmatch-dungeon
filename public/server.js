@@ -162,11 +162,13 @@ class User {
 }
 
 const items = [];
-const itemSpawnPoints = [{x: 16, y: 16},{x: 480, y: 16},{x: 16, y: 480},{x: 480, y: 480}];
+const itemSpawnPoints = [{x: 288, y:64}, {x: 208, y:64},{x: 16, y: 64},{x: 480, y: 64},{x: 16, y: 416},{x: 480, y: 416},{x: 288, y:416}, {x: 208, y:416}];
 let chat = [];
 const maxChats = 10;
 const maxChatChars = 20;
 let timer = null;
+
+let matchRunning = !1;
 
 function spawnItems() {
     if (!items.length) itemSpawnPoints.forEach((spawnPoint, i) => {
@@ -252,20 +254,6 @@ module.exports = {
             io.sockets.emit('chat', chat.map(i => i.txt));
         });
         
-        // socket.on("itemUpdate", (id) => {
-        //     // console.log('got state update', player)
-        //     var i = items.findIndex(function(o){
-        //         return o.id === id;
-        //     })
-
-        //     // if (i !== -1) items.splice(i, 1);
-        //     if (i !== -1) {
-        //         items[i].time = Date.now();
-        //         items[i].type = 0;
-        //     }
-
-        //     io.sockets.emit('itemUpdate', items);
-        // });
     },
 
     // stat: (req, res) => {
