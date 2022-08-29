@@ -39,14 +39,15 @@
     var bCtx = bCanvas.getContext("2d");
     bCtx.imageSmoothingEnabled = false;
 
+    let matchRunning = !1;
     const keyboardState = {};
     const mouse = { x: 0, y: 0 };
     const playerSpeed = 1;
     const projectileSpeed = 2;
     const spriteSize = 16;
     const projectileSize = 5;
-    const maxRunes = 12;
-    const startBounces = 10;
+    const maxRunes = 8;
+    const startBounces = 8;
 
     let items = [];
     const msg = {txt: "", time: 0};
@@ -155,6 +156,7 @@
     const gameState = {
         players: [
             {
+                active: false,
                 username: "",
                 playerId: Math.floor(Math.random() * 100000000),
                 sessionId: '',
@@ -162,12 +164,6 @@
                 x: 32,
                 y: 32,
                 hit: 0,
-                // vx: 0,
-                // vy: 0,
-                // a: 1.05,
-                // maxV: 1,
-                // friction: 0.97,
-                // color: '#ae83c3',
                 scroll: 0, // which magic scroll is active
                 health: 100,
                 facing: 1,
@@ -207,12 +203,12 @@
             canvas.height = w / ratio;
         }
         scale = canvas.width / gameWidth;
+        blit();
     }
 
     function blit() {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(bCanvas, 0, 0, bCanvas.width, bCanvas.height, 0, 0, canvas.width, canvas.height);
-        // ctx.putImageData(scaleImageData(bCtx.getImageData(0, 0, bCanvas.width, bCanvas.height), Math.floor(canvas.width / bCanvas.width)), 0, 0);
     }
 
     var rotateVector = function(vec, ang) {
@@ -225,56 +221,7 @@
     /**
      * Bind Socket.IO and events
      */
-    function bind() {
-
-    //     socket.on("start", () => {
-    //         enableButtons();
-    //         setMessage("Round " + (points.win + points.lose + points.draw + 1));
-    //     });
-
-    //     socket.on("win", () => {
-    //         points.win++;
-    //         displayScore("You win!");
-    //     });
-
-    //     socket.on("lose", () => {
-    //         points.lose++;
-    //         displayScore("You lose!");
-    //     });
-
-    //     socket.on("draw", () => {
-    //         points.draw++;
-    //         displayScore("Draw!");
-    //     });
-
-    //     socket.on("end", () => {
-    //         disableButtons();
-    //         setMessage("Waiting for opponent...");
-    //     });
-
-    //     socket.on("connect", () => {
-    //         disableButtons();
-    //         setMessage("Waiting for opponent...");
-    //     });
-
-    //     socket.on("disconnect", () => {
-    //         disableButtons();
-    //         setMessage("Connection lost!");
-    //     });
-
-    //     socket.on("error", () => {
-    //         disableButtons();
-    //         setMessage("Connection error!");
-    //     });
-
-    //     for (let i = 0; i < buttons.length; i++) {
-    //         ((button, guess) => {
-    //             button.addEventListener("click", function (e) {
-    //                 disableButtons();
-    //                 socket.emit("guess", guess);
-    //             }, false);
-    //         })(buttons[i], i + 1);
-    //     }
+    function bindSocket() {
 
         socket = io({'sync disconnect on unload': true, upgrade: false, transports: ["websocket"] });
 
@@ -322,25 +269,23 @@
             if (!playerWasFound) {
                 // New player
                 gameState.players.push(player);
-                // gameState.viewport.following = gameState.players[1];
             }
         });
+    }
 
+    function bindEvents() {
         document.addEventListener("keydown", e => {
-            if (!chat.active) keyboardState[e.key] = true;
-            // if (keyboardState.w || keyboardState.a || keyboardState.s || keyboardState.d || keyboardState.ArrowLeft || keyboardState.d || keyboardState.ArrowRight || keyboardState.ArrowUp || keyboardState.ArrowDown) {
-            //     e.stopPropagation();
-            //     e.preventDefault();
-            // }
-        });
-        
-        document.addEventListener("keyup", e => {
+            const reserveKeys = ["Tab"];
+            let regex = /^[A-Za-z0-9\s\?\!\']$/;
+            if (reserveKeys.includes(e.key) ) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
             if (chat.active) {
-                let regex = /^[A-Za-z0-9\s]$/;
                 if (e.key.match(regex)) {
                     if (chat.txt.length < 20) chat.txt = chat.txt + e.key;
                 }
-                if (e.key == "Escape") chat.active = false;
+                if (e.key == "Escape" || e.key == "Tab") chat.active = false;
                 if (e.key == "Backspace" && chat.txt.length) chat.txt = chat.txt.substring(0, chat.txt.length - 1);
                 if (e.key == "Enter") {
                     if (chat.txt.length) {
@@ -351,13 +296,26 @@
                         chat.active = false;
                     }
                 }
+            } else if (!gameState.players[0].active) {
+                if (e.key.match(regex)) {
+                    if (gameState.players[0].username.length < 11) gameState.players[0].username += e.key;
+                }
+                if (e.key == "Backspace" && gameState.players[0].username.length > 0) gameState.players[0].username = gameState.players[0].username.substring(0, gameState.players[0].username.length - 1);
+                if (e.key == "Enter" && gameState.players[0].username.length) {
+                    init();
+                }
+                renderTitle();
             } else {
-                if (e.key == "Enter") {
+                if (e.key == "Tab") {
                     chat.active = true;
                 } else {
-                    keyboardState[e.key] = false;
+                    keyboardState[e.key] = true;
                 }
             }
+        });
+        
+        document.addEventListener("keyup", e => {
+            keyboardState[e.key] = false;
         });
     
         document.addEventListener("mousemove", e => {
@@ -486,7 +444,7 @@
                 // Check for collision with players
                 for (let j = 0; j < gameState.players.length; j++) {
                     // if (i == j && gameState.players[j].scroll != 1 && p.bounces == startBounces) continue; // Don't check own projectiles unless it's ricochet
-                    if (i == j) continue; // Don't check own projectiles unless it's ricochet
+                    if (i == j) continue; // Don't check own projectiles (TODO: unless it's ricochet?)
                     if (p.x < gameState.players[j].x + spriteSize
                         && p.x + projectileSize > gameState.players[j].x
                         && p.y < gameState.players[j].y + spriteSize
@@ -651,16 +609,20 @@
             if (Date.now() > msg.time + 3000) msg.txt = "";
             write(msg.txt, gameWidth / 2, 5, '#fff', 1, 1);
         };
+
+        if (gameState.players.length == 1) write("Waiting for players", gameWidth / 2, gameHeight / 5, '#fff', 2, 1);
         
         // Render chat dialog
         if (chat.active) {
-            write("Chat: " + chat.txt, 2, 15, '#fff', 1);
+            let w = write("Chat: " + chat.txt, 2, 15, '#fff', 1);
+            bCtx.fillStyle = "#fff";
+            bCtx.fillRect(3 + w, 15, 3, 5);
         }
 
         // Render chats
         if (chat.chats && chat.chats.length) {
             for (let i = 0; i < chat.chats.length; i++) { 
-                write(chat.chats[chat.chats.length - 1 - i], 2, 174 - i * 7, '#fff', 1);
+                write(chat.chats[chat.chats.length - 1 - i], 0, 174 - i * 7, '#fff', 1);
             }
         }
 
@@ -704,6 +666,8 @@
             bCtx.fillStyle = char.fill;
             bCtx.fillRect(char.rectX - xOffset, char.rectY, pixelSize, pixelSize);
         });
+
+        return totalWidth;
     }
 
     function renderStats() {
@@ -731,6 +695,7 @@
             player.hit = 0;
             player.x = respawnPoints[r].x;
             player.y = respawnPoints[r].y;
+            player.runes.length = 0;
         }
     }
     
@@ -781,34 +746,6 @@
         let py = p.y - gameState.viewport.y;
         if (px < 0 || px > gameWidth - 1 || py < 0 || py > gameHeight - 1) return;
 
-        // bCtx.fillStyle = "rgb(255, 255, 255)";
-        // bCtx.fillRect(px - 2, py - 2, 4, 4);
-        
-        // let dots = 5;
-        // for (let x = 0; x < 18; x++) {
-        //     // for (let y = 0; y < 3; y++) {
-        //         // if (x % 6 == 0 ) {
-        //         //     // console.log(x);
-        //         //     bCtx.fillStyle = "rgb(0, 255, 0)";
-        //         //     dots--;
-        //         // } else {
-        //         //     let r = Math.floor(Math.random() * 3);
-        //         //     if (r == 0) bCtx.fillStyle = "rgb(255, 51, 0)";
-        //         //     if (r == 1) bCtx.fillStyle = "rgb(255, 204, 0)";
-        //         //     if (x == 10) bCtx.fillStyle = "rgb(255, 255, 255)";
-        //         // }
-        //         // console.log(bCtx.fillStyle,px + (x % 3), py + Math.floor(x / 6));
-        //         let r = Math.floor(Math.random() * 3);
-        //         if (x == r) {
-        //             bCtx.fillStyle = "rgb(255, 51, 0)";
-        //         } else {
-        //             bCtx.fillStyle = "rgb(255, 255, 255)";
-        //         }
-        //         if (x == 13) bCtx.fillStyle = "rgb(255, 0, 0)";
-        //         bCtx.fillRect(px + Math.floor(x / 3), py + (x % 3), 1, 1);
-        //     // }
-        // }
-
         // Rotatable projectile
         // bCtx.save();
         // bCtx.translate(px + (spriteSize / 2), py + (spriteSize / 2));
@@ -817,7 +754,6 @@
         // bCtx.drawImage(sprites, 64, 0, spriteSize, spriteSize, px - spriteSize, py - spriteSize, spriteSize, spriteSize);
         // bCtx.restore();
 
-        // bCtx.drawImage(sprites, 16, 16, spriteSize, spriteSize, px, py, spriteSize, spriteSize);
         bCtx.drawImage(sprites, 64, 0, 5, 5, px, py, 5, 5);
     }
 
@@ -832,38 +768,49 @@
         requestAnimationFrame(loop);
     }
 
-    /**
-     * Client module init
-     */
     function init() {
-        // socket = io({ upgrade: false, transports: ["websocket"] });
-        // buttons = document.getElementsByTagName("button");
-        // message = document.getElementById("message");
-        // score = document.getElementById("score");
-        // disableButtons();
-        
-        bind();
-        
-        resizeCanvas();
+        gameState.players[0].active = !0;
+        bindSocket();
 
+        // resizeCanvas();
+        
         gameState.viewport.following = gameState.players[0];
         
         sprites.onload = function() {
-            document.getElementById("menu").style.display = "none";
-            document.body.appendChild(canvas);
-            // document.getElementById("container").appendChild(canvas);
+            // document.getElementById("menu").style.display = "none";
+            // document.body.appendChild(canvas);
             requestAnimationFrame(loop);
         }
         sprites.src = "./sprites.png";
     }
+    
+    // document.querySelector("form").addEventListener("submit", e => {
+    //     e.preventDefault();
+    //     gameState.players[0].username = document.getElementById("username").value;
+    //     init();
+    // });
 
-    document.querySelector("form").addEventListener("submit", e => {
-        e.preventDefault();
-        gameState.players[0].username = document.getElementById("username").value;
-        // console.log(gameState);
-        init();
-    });
+    function renderTitle() {
+        bCtx.fillStyle = ("#000");
+        bCtx.fillRect(0, 0, gameWidth, gameHeight);
+        write("Deathmatch Dungeon", gameWidth / 2, gameHeight / 5, '#ddd', 3, 1);
+        write("Deathmatch Dungeon", gameWidth / 2, gameHeight / 5 + 2, '#666', 3, 1);
+        write("Deathmatch Dungeon", gameWidth / 2 + 1, gameHeight / 5 + 1, '#ee2530', 3, 1);
+        let w = write("Enter your name: " + gameState.players[0].username, 49, 75, '#eee', 2, 0);
+        bCtx.fillStyle = "#eee";
+        bCtx.fillRect(w + 49 + 2, 75, 6, 10);
+        blit();
+    }
+    
+    function welcome() {
+        // gameState.players[0].username = "test";
+        bindEvents();
+        document.body.appendChild(canvas);
+        resizeCanvas();
+        renderTitle();
+        // init();
+    }
 
-    //window.addEventListener("load", init, false);
+    window.addEventListener("load", welcome, false);
 
 // })();

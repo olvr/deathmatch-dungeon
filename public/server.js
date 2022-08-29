@@ -244,9 +244,11 @@ module.exports = {
         });
         
         socket.on("chat", (updateTxt) => {
-            console.log("received " + updateTxt);
-            if (chat.push({txt: updateTxt.substring(0, maxChatChars), time: Date.now()}) > maxChats) chat.splice(0, 1);
-            console.log(chat);
+            let [user, ...rest] = updateTxt.split(":");
+            updateTxt = rest.join(":");
+            // console.log("received " + updateTxt);
+            if (chat.push({txt: user + ": " + updateTxt.substring(0, maxChatChars + 1), time: Date.now()}) > maxChats) chat.splice(0, 1);
+            // console.log(chat);
             io.sockets.emit('chat', chat.map(i => i.txt));
         });
         
