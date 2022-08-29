@@ -164,8 +164,8 @@ class User {
 const items = [];
 const itemSpawnPoints = [{x: 288, y:64}, {x: 208, y:64},{x: 16, y: 64},{x: 480, y: 64},{x: 16, y: 416},{x: 480, y: 416},{x: 288, y:416}, {x: 208, y:416}];
 let chat = [];
-const maxChats = 10;
-const maxChatChars = 20;
+const maxChats = 20;
+const maxChatChars = 40;
 let timer = null;
 
 let matchRunning = !1;

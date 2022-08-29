@@ -284,7 +284,7 @@
             }
             if (chat.active) {
                 if (e.key.match(regex)) {
-                    if (chat.txt.length < 20) chat.txt = chat.txt + e.key;
+                    if (chat.txt.length < 40) chat.txt = chat.txt + e.key;
                 }
                 if (e.key == "Escape" || e.key == "Tab") chat.active = false;
                 if (e.key == "Backspace" && chat.txt.length) chat.txt = chat.txt.substring(0, chat.txt.length - 1);
@@ -484,7 +484,7 @@
                 for (let j = 0; j < gameState.players.length; j++) {
                     if (i == j) continue; // Don't check own runes
                     if (rectCollision(gameState.players[j].x, gameState.players[j].y, spriteSize, spriteSize, r.x, r.y, spriteSize, spriteSize)) {
-                        playerHit(gameState.players[j], gameState.players[i]);
+                        if (!r.remove) playerHit(gameState.players[j], gameState.players[i]);
                         r.remove = true;
                     }
                 }
@@ -622,7 +622,7 @@
 
         // Render chats
         if (chat.chats && chat.chats.length) {
-            for (let i = 0; i < chat.chats.length; i++) { 
+            for (let i = 0; i < chat.chats.length; i++) {
                 write(chat.chats[chat.chats.length - 1 - i], 0, 174 - i * 7, '#fff', 1);
             }
         }
@@ -835,7 +835,9 @@
 
         let w = write("Enter your name: " + gameState.players[0].username, 49, 75, '#eee', 2, 0);
         bCtx.fillStyle = "#eee";
-        bCtx.fillRect(w + 49 + 2, 75, 6, 10);
+        bCtx.fillRect(w + 49 + 2, 75, 6, 10); // Cursor
+        write("WASD or arrows to move, mouse to aim, click to shoot", 50, 120, '#eee', 1);
+        write("Tab to open chat", 50, 130, '#eee', 1);
         blit();
         if (titleScreen) requestAnimationFrame(renderTitle);
     }
