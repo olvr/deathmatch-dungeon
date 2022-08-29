@@ -13,6 +13,8 @@
     //     };
     let socket;
     let connected;
+    let titleScreen = !0;
+    let drips = [];
     let chat = {
         active: false,
         chats: [],
@@ -548,7 +550,7 @@
         gameState.viewport.y = gameState.viewport.following.y - (gameHeight / 2) + spriteSize / 2;
 
         // Update the server with the new state
-        if (connected) socket.volatile.emit('stateUpdate', gameState.players[0], itemIdClaimed);
+        if (connected) socket.emit('stateUpdate', gameState.players[0], itemIdClaimed);
     }
 
     function gameRender() {
@@ -692,7 +694,6 @@
             player.health = 100;
             player.scroll = 0;
             player.hit = 0;
-            console.log(player.x, player.y);
             player.x = respawnPoints[r].x;
             player.y = respawnPoints[r].y;
             player.runes.length = 0;
@@ -769,38 +770,74 @@
     }
 
     function init() {
+        titleScreen = !1;
         gameState.players[0].active = !0;
         bindSocket();
 
         // resizeCanvas();
         
         gameState.viewport.following = gameState.players[0];
-        
-        sprites.onload = function() {
-            // document.getElementById("menu").style.display = "none";
-            // document.body.appendChild(canvas);
-            respawn(gameState.players[0]);
+
+        respawn(gameState.players[0]);
             requestAnimationFrame(loop);
-        }
-        sprites.src = "./sprites.png";
+        
+        // sprites.onload = function() {
+        //     respawn(gameState.players[0]);
+        //     requestAnimationFrame(loop);
+        // }
+        // sprites.src = "./sprites.png";
     }
     
-    // document.querySelector("form").addEventListener("submit", e => {
-    //     e.preventDefault();
-    //     gameState.players[0].username = document.getElementById("username").value;
-    //     init();
-    // });
-
-    function renderTitle() {
+    function renderTitle(timestamp) {
+        let elapsed = (timestamp - oldTimeStamp) / 1000;
         bCtx.fillStyle = ("#000");
         bCtx.fillRect(0, 0, gameWidth, gameHeight);
-        write("Deathmatch Dungeon", gameWidth / 2, gameHeight / 5, '#ddd', 3, 1);
+        const x = [52, 64, 91, 100, 106, 112, 124, 145, 154, 166, 172, 184, 196, 202, 208, 217, 238, 250, 256, 262, 271];
+        // bCtx.fillStyle = ("#0f0");
+        // x.forEach(i => {
+        //     bCtx.fillRect(i, 53, 3, 3);
+        // })
+        // const x = [52, 55, 64, 67, 70, 76, 82, 91, 100, 106, 112, 124, 130, 136, 145, 154, 157, 160, 166, 172, 184, 187, 196, 199, 202, 208, 217, 226, 229, 238, 241, 243, 249, 252, 255, 261, 270];
+        for (let i = 0; i < 14; i++) {
+            bCtx.drawImage(sprites, 16, 32, spriteSize, spriteSize, 51 + i * spriteSize, 16, spriteSize, spriteSize);
+        }
+        bCtx.drawImage(sprites, 0, 0, spriteSize, spriteSize, 51, 16, spriteSize, spriteSize);
+        bCtx.save();
+        bCtx.translate((259) * 2 + spriteSize, 0);
+        bCtx.scale(-1, 1);
+        bCtx.drawImage(sprites, 0, 0, spriteSize, spriteSize, 259, 16, spriteSize, spriteSize);
+        bCtx.restore();
+
+        write("Deathmatch Dungeon", gameWidth / 2, gameHeight / 5, '#fff', 3, 1);
         write("Deathmatch Dungeon", gameWidth / 2, gameHeight / 5 + 2, '#666', 3, 1);
-        write("Deathmatch Dungeon", gameWidth / 2 + 1, gameHeight / 5 + 1, '#ee2530', 3, 1);
+        write("Deathmatch Dungeon", gameWidth / 2 + 1, gameHeight / 5 + 1, '#dd0a1e', 3, 1);
+        bCtx.fillStyle = "#aa0a1e";
+        if (timestamp > oldTimeStamp + 1000) {
+            if (Math.random() < 0.5) {
+                let r = Math.floor(Math.random() * x.length);
+                drips.push({x: x[r], y: gameHeight / 5 + 1});
+                if (Math.random() < 0.5) {
+                    let r = Math.floor(Math.random() * x.length);
+                    drips.push({x: x[r], y: gameHeight / 5 + 1});
+                }
+            }
+            oldTimeStamp = timestamp;
+        }
+        drips.forEach(drip => {
+            if (drip.y > gameHeight) drip.remove = !0; 
+            if (drip.y < gameHeight / 5 + 1 + 28) bCtx.fillRect(drip.x, gameHeight / 5 + 1, 3, drip.y - gameHeight / 5 + 1);
+            bCtx.fillRect(drip.x, drip.y, 3, 3);
+            drip.y += drip.y / 120;
+        });
+        drips = drips.filter(drip => {
+            return (drip.remove !== true);
+        });
+
         let w = write("Enter your name: " + gameState.players[0].username, 49, 75, '#eee', 2, 0);
         bCtx.fillStyle = "#eee";
         bCtx.fillRect(w + 49 + 2, 75, 6, 10);
         blit();
+        if (titleScreen) requestAnimationFrame(renderTitle);
     }
     
     function welcome() {
@@ -808,8 +845,11 @@
         bindEvents();
         document.body.appendChild(canvas);
         resizeCanvas();
-        renderTitle();
-        // init();
+
+        sprites.onload = function() {
+            renderTitle();
+        }
+        sprites.src = "./sprites.png";
     }
 
     window.addEventListener("load", welcome, false);
