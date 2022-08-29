@@ -351,7 +351,7 @@
                 if (map.canMoveToXY(runeX, runeY)) {
                     console.log(runeX, runeY);
                     if (gameState.players[0].runes.length >= maxRunes) gameState.players[0].runes.splice(0, 1);
-                    gameState.players[0].runes.push({x: runeX, y: runeY});
+                    gameState.players[0].runes.push({x: runeX, y: runeY, remove: !1});
                 }
             }
 
@@ -414,10 +414,8 @@
             player.health = 0;
             respawnTime = Date.now();
             if (gameState.players.indexOf(attacker) == 0) {
-            // if (gameState.players[0].pwned.length) {
                 msg.txt = "Pwnage! " + player.username + " is out for the count!";
                 msg.time = Date.now();
-                // gameState.players[0].pwned = "";
             }
             if (gameState.players.indexOf(player) == 0) {
                 msg.txt = "Oh no! " + attacker.username + " just pwned you!";
