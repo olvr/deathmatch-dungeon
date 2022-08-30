@@ -174,14 +174,14 @@ function spawnItems() {
     if (!items.length) itemSpawnPoints.forEach((spawnPoint, i) => {
         items.push({
             id: i,
-            type: (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 4) + 2,
+            type: (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 5) + 2,
             x: spawnPoint.x,
             y: spawnPoint.y,
             time: Date.now()
         });
     });
     items.forEach(item => {
-        if (!item.type && Date.now() > item.time + 5000) item.type = (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 4) + 2;
+        if (!item.type && Date.now() > item.time + 5000) item.type = (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 5) + 2;
     });
     io.sockets.emit('itemUpdate', items);
 
@@ -236,8 +236,12 @@ module.exports = {
             io.sockets.emit('removeRunes', socket.id);
         });
 
-        socket.on("runeUpdate", (rune) => {
-            io.sockets.emit('runeUpdate', socket.id, rune);
+        socket.on("addRune", (rune) => {
+            io.sockets.emit('addRune', socket.id, rune);
+        });
+
+        socket.on("addProjectile", (projectile) => {
+            io.sockets.emit('addProjectile', socket.id, projectile);
         });
 
         socket.on("itemUpdate", (id) => {

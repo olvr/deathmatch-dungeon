@@ -22,6 +22,7 @@
     };
     let fps = 120;
     let oldTimeStamp = 0;
+    let prevMouseDown = Date.now();
     let respawnTime = 0;
     const gameWidth = 320;
     const gameHeight = 180;
@@ -49,11 +50,11 @@
     const spriteSize = 16;
     const projectileSize = 5;
     const maxRunes = 8;
-    const startBounces = 8;
+    const startBounces = 5;
 
     let items = [];
     const msg = {txt: "", time: 0};
-    const scrolls = ["","ricochet","split shot","double damage","runic hex"];
+    const scrolls = ["","ricochet","split shot","double damage","runic hex", "invisibility"];
     const respawnPoints = [{x: 16, y: 208},{x: 16, y: 272},{x: 480, y: 208},{x: 480, y: 272}];
 
     const map = {
@@ -261,13 +262,21 @@
             gameState.players[i].runes.length = 0;
         });
 
-        socket.on('runeUpdate', function (id, rune) {
+        socket.on('addRune', function (id, rune) {
             // console.log(id, rune);
             let i = gameState.players.findIndex(o => {
                 return o.sessionId === id;
             });
             if (gameState.players[i].runes.length >= maxRunes) gameState.players[i].runes.splice(0, 1);
             gameState.players[i].runes.push(rune);
+        });
+
+        socket.on('addProjectile', function (id, projectile) {
+            let i = gameState.players.findIndex(o => {
+                return o.sessionId === id;
+            });
+            // if (gameState.players[i].projectiles.length >= maxProjectiles) gameState.players[i].projectiles.splice(0, 1);
+            gameState.players[i].projectiles.push(projectile);
         });
 
         socket.on('stateUpdate', function (player) {
@@ -358,7 +367,12 @@
         });
     
         document.addEventListener("mousedown", e => {
+            if (Date.now() < prevMouseDown + 100) return;
+            prevMouseDown = Date.now();
+
             if (e.buttons != 1 || gameState.players[0].health <= 0) return; // LMB is 1
+            // If invisible
+            if (gameState.players[0].scroll == 5) gameState.players[0].scroll = 0;
             // If rune scroll
             if (gameState.players[0].scroll == 4) {
                 let runeX = gameState.viewport.x + mouse.x;
@@ -378,7 +392,7 @@
                     // console.log(runeX, runeY);
                     // if (gameState.players[0].runes.length >= maxRunes) gameState.players[0].runes.splice(0, 1);
                     // gameState.players[0].runes.push({x: runeX, y: runeY, remove: !1});
-                    socket.emit("runeUpdate", {x: runeX, y: runeY, remove: !1});
+                    socket.emit("addRune", {x: runeX, y: runeY, remove: !1});
                 }
             }
 
@@ -407,14 +421,19 @@
                 bounces: startBounces
             }
 
-            if (gameState.players[0].scroll != 4) gameState.players[0].projectiles.push(projectile);
+            // If not runic hex
+            // if (gameState.players[0].scroll != 4) gameState.players[0].projectiles.push(projectile);
+            if (gameState.players[0].scroll != 4) socket.emit("addProjectile", projectile);
             
             // If player has the split shot magic scroll
             if (gameState.players[0].scroll == 2) {
                 let multi = rotateVector([dx, dy], 10);
-                gameState.players[0].projectiles.push({x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
+                // gameState.players[0].projectiles.push({x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
+                // multi = rotateVector([dx, dy], -10);
+                // gameState.players[0].projectiles.push({x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
+                socket.emit("addProjectile", {x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
                 multi = rotateVector([dx, dy], -10);
-                gameState.players[0].projectiles.push({x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
+                socket.emit("addProjectile", {x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
             }
         });
 
@@ -434,7 +453,7 @@
     }
 
     function playerHit(player, attacker) {
-        if (player.health <= 0) return;
+        if (player.health <= 0 || player.scroll == 5) return;
         player.hit = 20;
         player.health -= (attacker.scroll == 3) ? 20 : 10;
         if (player.health <= 0) {
@@ -472,6 +491,7 @@
                 for (let j = 0; j < gameState.players.length; j++) {
                     // if (i == j && gameState.players[j].scroll != 1 && p.bounces == startBounces) continue; // Don't check own projectiles unless it's ricochet
                     if (i == j) continue; // Don't check own projectiles (TODO: unless it's ricochet?)
+                    if (gameState.players[j].scroll == 5 || gameState.players[j].health < 1) continue;
                     if (p.x < gameState.players[j].x + spriteSize
                         && p.x + projectileSize > gameState.players[j].x
                         && p.y < gameState.players[j].y + spriteSize
@@ -509,6 +529,7 @@
             gameState.players[i].runes.forEach(r => {
                 for (let j = 0; j < gameState.players.length; j++) {
                     if (i == j) continue; // Don't check own runes
+                    if (gameState.players[j].scroll == 5) continue;
                     if (rectCollision(gameState.players[j].x, gameState.players[j].y, spriteSize, spriteSize, r.x, r.y, spriteSize, spriteSize)) {
                         if (!r.remove) playerHit(gameState.players[j], gameState.players[i]);
                         r.remove = true;
@@ -751,17 +772,17 @@
                 dx = spriteSize;
                 dy = spriteSize;
             }
+            // If player is invisible
+            if (player.scroll == 5) {
+                bCtx.globalAlpha = (gameState.players.indexOf(player) == 0) ? 0.4 : 0;
+            }
             bCtx.drawImage(sprites, dx, dy, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
             bCtx.restore();
         }
         
-        if (gameState.players.indexOf(player) > 0) {
+        if (gameState.players.indexOf(player) > 0 && player.scroll != 5) {
             // Display name
             write(player.username, player.x - gameState.viewport.x + spriteSize / 2, player.y - gameState.viewport.y - spriteSize, '#fff', 1, true);
-            // bCtx.font = "12px sans-serif";
-            // bCtx.fillStyle = "rgb(240, 240, 240)";
-            // bCtx.fillText(player.username, player.x - gameState.viewport.x - (bCtx.measureText(player.username).width / 2) + (spriteSize / 2), (player.y - gameState.viewport.y - spriteSize - 6));
-
             // Display health
             bCtx.fillStyle = "rgb(0, 0, 0)";
             bCtx.fillRect(player.x - gameState.viewport.x - spriteSize / 2 - 1, player.y - gameState.viewport.y - spriteSize / 2 - 1, spriteSize * 2 + 2, 5);
