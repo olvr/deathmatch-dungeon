@@ -232,9 +232,17 @@ module.exports = {
             io.sockets.emit('playerDisconnect', socket.id);
         });
 
+        socket.on("removeRunes", () => {
+            io.sockets.emit('removeRunes', socket.id);
+        });
+
+        socket.on("runeUpdate", (rune) => {
+            io.sockets.emit('runeUpdate', socket.id, rune);
+        });
+
         socket.on("itemUpdate", (id) => {
             // console.log('got state update', player)
-            var i = items.findIndex(function(o){
+            let i = items.findIndex(o => {
                 return o.id === id;
             });
             if (i !== -1) {

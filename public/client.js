@@ -158,6 +158,7 @@
         players: [
             {
                 active: false,
+                entryTime: 0,
                 username: "",
                 playerId: Math.floor(Math.random() * 100000000),
                 sessionId: '',
@@ -237,7 +238,11 @@
             // gameState.players[0].sessionId = socket.sessionid;
             console.log("Player disconnected: " + sessionId);
             for (let i = 0; i < gameState.players.length; i++) {
-                if (gameState.players[i].sessionId == sessionId) gameState.players.splice(i, 1);
+                if (gameState.players[i].sessionId == sessionId) {
+                    msg.txt = gameState.players[i].username + " left the dungeon";
+                    msg.time = Date.now();
+                    gameState.players.splice(i, 1);
+                }
             }
         });
 
@@ -249,9 +254,23 @@
             items = updateItems;
         });
 
-        socket.on('stateUpdate', function (player) {
-            // items = updateItems;
+        socket.on('removeRunes', function (id) {
+            let i = gameState.players.findIndex(o => {
+                return o.sessionId === id;
+            });
+            gameState.players[i].runes.length = 0;
+        });
 
+        socket.on('runeUpdate', function (id, rune) {
+            // console.log(id, rune);
+            let i = gameState.players.findIndex(o => {
+                return o.sessionId === id;
+            });
+            if (gameState.players[i].runes.length >= maxRunes) gameState.players[i].runes.splice(0, 1);
+            gameState.players[i].runes.push(rune);
+        });
+
+        socket.on('stateUpdate', function (player) {
             if (player.playerId === myPlayerId) {
                 // ignore own update
                 return;
@@ -262,10 +281,9 @@
                 if (gameState.players[i].playerId === player.playerId) {
                     //gameState.players[i] = player;
                     // Update player object without losing references to it
+                    delete player.runes;
                     gameState.players[i] = Object.assign(gameState.players[i], player);
 
-                    // if (gameState.players.length > 1) gameState.viewport.following = gameState.players[1];
-                    
                     playerWasFound = true;
                     break;
                 }
@@ -274,6 +292,10 @@
             if (!playerWasFound) {
                 // New player
                 gameState.players.push(player);
+                if (player.entryTime > gameState.players[0].entryTime) {
+                    msg.txt = player.username + " entered the dungeon";
+                    msg.time = Date.now();
+                }
             }
         });
     }
@@ -353,9 +375,10 @@
 
                 // Only place runes on floor tiles
                 if (map.canMoveToXY(runeX, runeY)) {
-                    console.log(runeX, runeY);
-                    if (gameState.players[0].runes.length >= maxRunes) gameState.players[0].runes.splice(0, 1);
-                    gameState.players[0].runes.push({x: runeX, y: runeY, remove: !1});
+                    // console.log(runeX, runeY);
+                    // if (gameState.players[0].runes.length >= maxRunes) gameState.players[0].runes.splice(0, 1);
+                    // gameState.players[0].runes.push({x: runeX, y: runeY, remove: !1});
+                    socket.emit("runeUpdate", {x: runeX, y: runeY, remove: !1});
                 }
             }
 
@@ -416,6 +439,7 @@
         player.health -= (attacker.scroll == 3) ? 20 : 10;
         if (player.health <= 0) {
             player.health = 0;
+            socket.emit("removeRunes");
             respawnTime = Date.now();
             if (gameState.players.indexOf(attacker) == 0) {
                 msg.txt = "Pwnage! " + player.username + " is out for the count!";
@@ -615,7 +639,7 @@
             write(msg.txt, gameWidth / 2, 5, '#fff', 1, 1);
         };
 
-        if (gameState.players.length == 1) write("Waiting for players", gameWidth / 2, gameHeight / 5, '#fff', 2, 1);
+        if (gameState.players.length == 1 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for players", gameWidth / 2, gameHeight / 5, '#fff', 2, 1);
         
         // Render chat dialog
         if (chat.active) {
@@ -700,7 +724,7 @@
             player.hit = 0;
             player.x = respawnPoints[r].x;
             player.y = respawnPoints[r].y;
-            player.runes.length = 0;
+            // player.runes.length = 0;
         }
     }
     
@@ -776,6 +800,7 @@
     function init() {
         titleScreen = !1;
         gameState.players[0].active = !0;
+        gameState.players[0].entryTime = Date.now();
         bindSocket();
 
         // resizeCanvas();
