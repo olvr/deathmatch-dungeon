@@ -220,7 +220,7 @@
     };
 
     /**
-     * Bind Socket.IO and events
+     * Bind Socket.IO
      */
     function bindSocket() {
 
@@ -245,8 +245,12 @@
             chat.chats = updateChat;
         });
 
-        socket.on('stateUpdate', function (player, updateItems) {
+        socket.on('itemUpdate', function (updateItems) {
             items = updateItems;
+        });
+
+        socket.on('stateUpdate', function (player) {
+            // items = updateItems;
 
             if (player.playerId === myPlayerId) {
                 // ignore own update
@@ -512,6 +516,7 @@
                 }
                 items[i].type = 0;
                 itemIdClaimed = items[i].id;
+                if (connected) socket.emit('itemUpdate', itemIdClaimed);
             }
         }
 
@@ -548,7 +553,8 @@
         gameState.viewport.y = gameState.viewport.following.y - (gameHeight / 2) + spriteSize / 2;
 
         // Update the server with the new state
-        if (connected) socket.emit('stateUpdate', gameState.players[0], itemIdClaimed);
+        // if (connected) socket.emit('stateUpdate', gameState.players[0], itemIdClaimed);
+        if (connected) socket.emit('stateUpdate', gameState.players[0]);
     }
 
     function gameRender() {

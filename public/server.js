@@ -232,7 +232,7 @@ module.exports = {
             io.sockets.emit('playerDisconnect', socket.id);
         });
 
-        socket.on("stateUpdate", (player, id) => {
+        socket.on("itemUpdate", (id) => {
             // console.log('got state update', player)
             var i = items.findIndex(function(o){
                 return o.id === id;
@@ -241,8 +241,11 @@ module.exports = {
                 items[i].time = Date.now();
                 items[i].type = 0;
             }
-            
-            io.sockets.emit('stateUpdate', player, items);
+            io.sockets.emit('itemUpdate', items);
+        });
+
+        socket.on("stateUpdate", (player) => {
+            io.sockets.emit('stateUpdate', player);
         });
         
         socket.on("chat", (updateTxt) => {
