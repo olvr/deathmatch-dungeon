@@ -651,6 +651,7 @@
                 let y = (r - startRow) * 16 + offsetY;
                 if (typeof s !== 'undefined' && tile && c >= 0 && c < map.cols && r >= 0 && r < map.rows) {
                     bCtx.drawImage(sprites, s.x, s.y, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
+                    if (tile == 7 || tile == 6) bCtx.drawImage(sprites, 80, 16, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
                 }
             }
         }
