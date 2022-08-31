@@ -55,15 +55,18 @@
     let items = [];
     const msg = {txt: "", time: 0};
     const scrolls = ["","ricochet","split shot","double damage","runic hex", "invisibility"];
-    const respawnPoints = [{x: 16, y: 208},{x: 16, y: 272},{x: 480, y: 208},{x: 480, y: 272}];
+    // const respawnPoints = [{x: 16, y: 208},{x: 16, y: 272},{x: 480, y: 208},{x: 480, y: 272}];
+    const respawnPoints = [{x: 16, y: 248},{x: 16, y: 304},{x: 480, y: 248},{x: 480, y: 304}];
 
     const map = {
         cols: 32,
-        rows: 32,
+        rows: 35,
         tileSize: 16,
+        wallOffset: 7, // Where the walls start in the tile type array
         tiles: [
             0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,
             0,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,
@@ -71,6 +74,7 @@
             0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
+            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
             0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
@@ -84,12 +88,14 @@
             0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
             0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
+            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
             0,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,
             0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -98,59 +104,80 @@
             return this.tiles[row * this.cols + col];
         },
         canMoveToXY: function(x, y) {
-            if (x < 0 || x > this.cols * this.tileSize || y < 0 || y > this.rows * this.tileSize) return;
-            let tile = this.getTile(Math.floor(x / this.tileSize), Math.floor(y / this.tileSize));
-            return (tile < 1 || tile > 4) ? false : true;
+            let tile = 0;
+            if (x < 0 || x > this.cols * this.tileSize || y < 0 || y > this.rows * this.tileSize) return false;
+
+            tile = this.getTile(Math.floor(x / this.tileSize), Math.floor((y + this.tileSize / 2) / this.tileSize));
+            if (tile > 4 && tile < 8) return false;
+            
+            tile = this.getTile(Math.floor(x / this.tileSize), Math.floor(y / this.tileSize));
+            return (tile < 1 || tile > this.wallOffset) ? false : true;
         },
         getSourceCoords: function(tile) {
             if (tile > 0 && tile < 5) return {x: tile * this.tileSize, y: this.tileSize * 2};
 
+            if (tile == 5) return {x: 112, y: 48};
+            if (tile == 6) return {x: 96, y: 48};
+            if (tile == 7) return {x: 128, y: 48};
+
             // Left wall
-            if (tile == 4 + 4) return {x: 0, y: 48};
+            if (tile == 4 + this.wallOffset) return {x: 0, y: 48};
             // Right wall
-            if (tile == 2 + 4) return {x: 32, y: 48};
+            if (tile == 2 + this.wallOffset) return {x: 32, y: 48};
             // Bottom wall
-            if (tile == 1 + 4) return {x: 16, y: 48};
+            if (tile == 1 + this.wallOffset) return {x: 16, y: 48};
             // Top wall
-            if (tile == 8 + 4) return {x: 64, y: 48};
+            // if (tile == 8 + 4) return {x: 64, y: 48};
+            if (tile == 8 + this.wallOffset) return {x: 112, y: 32};
             
             // Floor at top and left
-            if (tile == 3 + 4) return {x: 80, y: 32};
+            if (tile == 3 + this.wallOffset) return {x: 80, y: 32};
             // Floor at top and right
-            if (tile == 5 + 4) return {x: 0, y: 32};
+            if (tile == 5 + this.wallOffset) return {x: 0, y: 32};
             // Floor at bottom and right
-            if (tile == 12 + 4) return {x: 80, y: 48};
+            // if (tile == 12 + 4) return {x: 80, y: 48};
+            if (tile == 12 + this.wallOffset) return {x: 128, y: 32};
             // Floor bottom and left
-            if (tile == 10 + 4) return {x: 48, y: 48};
+            // if (tile == 10 + 4) return {x: 48, y: 48};
+            if (tile == 10 + this.wallOffset) return {x: 96, y: 32};
             
             // Floor bottom right
-            if (tile == 128 + 4) return {x: 0, y: 48};
-            if (tile == 64 + 4) return {x: 32, y: 48};
+            // if (tile == 128 + this.wallOffset) return {x: 0, y: 48};
+            // if (tile == 64 + this.wallOffset) return {x: 32, y: 48};
         }
     }
 
     // Update map to set tiles to use
     for (let i = 0; i < map.tiles.length; i++) {
+        let mapX = i % map.cols;
+        let mapY = Math.floor(i / map.cols);
         if (map.tiles[i] == 0) {
             // Set based on surrounding tiles
-            let bitMask = 0;
-            let mapX = i % map.cols;
-            let mapY = Math.floor(i / map.cols); 
+            let bitMask = 0; 
             // Greater than 0, less than 5 is a floor tile
             if (Math.abs(map.getTile(mapX, mapY - 1) - 2.5) < 2.5) bitMask += 1;
             if (Math.abs(map.getTile(mapX, mapY + 1) - 2.5) < 2.5) bitMask += 8;
             if (Math.abs(map.getTile(mapX - 1, mapY) - 2.5) < 2.5) bitMask += 2;
             if (Math.abs(map.getTile(mapX + 1, mapY) - 2.5) < 2.5) bitMask += 4;
-
+            
             if (bitMask == 0) {
                 if (Math.abs(map.getTile(mapX - 1, mapY + 1) - 2.5) < 2.5) bitMask = 64;
                 if (Math.abs(map.getTile(mapX + 1, mapY + 1) - 2.5) < 2.5) bitMask = 128;
             }
-            if (bitMask > 0) map.tiles[i] = bitMask + 4;
+            if (bitMask > 0) map.tiles[i] = bitMask + map.wallOffset;
         } else if (map.tiles[i] == 1)  {
             // Set this tile to a random floor tile
             map.tiles[i] = Math.floor(Math.random() * 4) + 1;
-        } 
+        }
+    }
+    
+    for (let i = 0; i < map.tiles.length; i++) {
+        if (map.tiles[i] > 4) continue;
+        let mapX = i % map.cols;
+        let mapY = Math.floor(i / map.cols);
+        if (map.getTile(mapX, mapY - 1) == 8 + map.wallOffset) map.tiles[i] = 5;
+        if (map.getTile(mapX, mapY - 1) == 10 + map.wallOffset) map.tiles[i] = 6;
+        if (map.getTile(mapX, mapY - 1) == 12 + map.wallOffset) map.tiles[i] = 7;
     }
 
     let sprites = new Image();
@@ -838,16 +865,13 @@
         // sprites.src = "./sprites.png";
     }
     
+ 
+
     function renderTitle(timestamp) {
         let elapsed = (timestamp - oldTimeStamp) / 1000;
         bCtx.fillStyle = ("#000");
         bCtx.fillRect(0, 0, gameWidth, gameHeight);
         const x = [52, 64, 91, 100, 106, 112, 124, 145, 154, 166, 172, 184, 196, 202, 208, 217, 238, 250, 256, 262, 271];
-        // bCtx.fillStyle = ("#0f0");
-        // x.forEach(i => {
-        //     bCtx.fillRect(i, 53, 3, 3);
-        // })
-        // const x = [52, 55, 64, 67, 70, 76, 82, 91, 100, 106, 112, 124, 130, 136, 145, 154, 157, 160, 166, 172, 184, 187, 196, 199, 202, 208, 217, 226, 229, 238, 241, 243, 249, 252, 255, 261, 270];
         for (let i = 0; i < 14; i++) {
             bCtx.drawImage(sprites, 16, 32, spriteSize, spriteSize, 51 + i * spriteSize, 16, spriteSize, spriteSize);
         }
