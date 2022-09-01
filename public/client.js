@@ -20,7 +20,7 @@
         chats: [],
         txt: ""
     };
-    let fps = 120;
+    let fps = 60;
     let oldTimeStamp = 0;
     let prevMouseDown = Date.now();
     let respawnTime = 0;
@@ -32,21 +32,20 @@
     const canvas = document.createElement("canvas");
     canvas.setAttribute("width", gameWidth);
     canvas.setAttribute("height", gameHeight);
-    // document.body.appendChild(canvas);
     const ctx = canvas.getContext("2d");
-    ctx.imageSmoothingEnabled = false;
+    // ctx.imageSmoothingEnabled = false;
     
     let bCanvas = document.createElement('canvas');
     bCanvas.width = gameWidth;
     bCanvas.height = gameHeight;
     var bCtx = bCanvas.getContext("2d");
-    bCtx.imageSmoothingEnabled = false;
+    // bCtx.imageSmoothingEnabled = false;
 
     let matchRunning = !1;
     const keyboardState = {};
     const mouse = { x: 0, y: 0 };
-    const playerSpeed = 1;
-    const projectileSpeed = 2;
+    const playerSpeed = 2; // was 1 at 120 fps
+    const projectileSpeed = 3; // was 2 at 120 fps
     const spriteSize = 16;
     const projectileSize = 5;
     const maxRunes = 8;
@@ -282,6 +281,21 @@
             items = updateItems;
         });
 
+        socket.on('claimItem', function (type) {
+            // Potion
+            if (type == 1) {
+                gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
+                msg.txt = "Potion restores health";
+                msg.time = Date.now();
+            }
+            // Scroll
+            else if (type > 1) {
+                gameState.players[0].scroll = type - 1;
+                msg.txt = "You picked up a scroll of " + scrolls[type - 1];
+                msg.time = Date.now();
+            }
+        });
+
         socket.on('removeRunes', function (id) {
             let i = gameState.players.findIndex(o => {
                 return o.sessionId === id;
@@ -318,6 +332,7 @@
                     //gameState.players[i] = player;
                     // Update player object without losing references to it
                     delete player.runes;
+                    delete player.projectiles;
                     gameState.players[i] = Object.assign(gameState.players[i], player);
 
                     playerWasFound = true;
@@ -339,7 +354,7 @@
     function bindEvents() {
         document.addEventListener("keydown", e => {
             const reserveKeys = ["Tab"];
-            let regex = /^[A-Za-z0-9\s\?\!\']$/;
+            let regex = /^[A-Za-z0-9\s\.\,\?\!\']$/;
             if (reserveKeys.includes(e.key) ) {
                 e.stopPropagation();
                 e.preventDefault();
@@ -394,7 +409,7 @@
         });
     
         document.addEventListener("mousedown", e => {
-            if (Date.now() < prevMouseDown + 100) return;
+            if (!gameState.players[0].active || Date.now() < prevMouseDown + 100) return;
             prevMouseDown = Date.now();
 
             if (e.buttons != 1 || gameState.players[0].health <= 0) return; // LMB is 1
@@ -485,7 +500,7 @@
         player.health -= (attacker.scroll == 3) ? 20 : 10;
         if (player.health <= 0) {
             player.health = 0;
-            socket.emit("removeRunes");
+            socket.emit("removeRunes", player.sessionId);
             respawnTime = Date.now();
             if (gameState.players.indexOf(attacker) == 0) {
                 msg.txt = "Pwnage! " + player.username + " is out for the count!";
@@ -575,20 +590,21 @@
             // We picked up an item
             if (rectCollision(gameState.players[0].x, gameState.players[0].y,spriteSize, spriteSize, items[i].x, items[i].y, spriteSize, spriteSize)) {
                 // Potion
-                if (items[i].type == 1) {
-                    gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
-                    msg.txt = "Potion restores health";
-                    msg.time = Date.now();
-                }
-                // Scroll
-                else if (items[i].type > 1) {
-                    gameState.players[0].scroll = items[i].type - 1;
-                    msg.txt = "You picked up a scroll of " + scrolls[items[i].type - 1];
-                    msg.time = Date.now();
-                }
-                items[i].type = 0;
+                // if (items[i].type == 1) {
+                //     gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
+                //     msg.txt = "Potion restores health";
+                //     msg.time = Date.now();
+                // }
+                // // Scroll
+                // else if (items[i].type > 1) {
+                //     gameState.players[0].scroll = items[i].type - 1;
+                //     msg.txt = "You picked up a scroll of " + scrolls[items[i].type - 1];
+                //     msg.time = Date.now();
+                // }
                 itemIdClaimed = items[i].id;
-                if (connected) socket.emit('itemUpdate', itemIdClaimed);
+                // if (connected) socket.emit('itemUpdate', itemIdClaimed);
+                if (connected) socket.emit('claimItem', itemIdClaimed, items[i].type);
+                items[i].type = 0;
             }
         }
 
@@ -815,7 +831,7 @@
             bCtx.fillStyle = "rgb(0, 0, 0)";
             bCtx.fillRect(player.x - gameState.viewport.x - spriteSize / 2 - 1, player.y - gameState.viewport.y - spriteSize / 2 - 1, spriteSize * 2 + 2, 5);
             bCtx.fillStyle = "rgb(255, 0, 0)";
-            bCtx.fillRect(player.x - gameState.viewport.x - spriteSize / 2, player.y - gameState.viewport.y - spriteSize / 2, (spriteSize * 2) / 100 * player.health, 3);
+            bCtx.fillRect(player.x - gameState.viewport.x - spriteSize / 2, player.y - gameState.viewport.y - spriteSize / 2, Math.round((spriteSize * 2) / 100 * player.health), 3);
         }
     }
 
@@ -869,7 +885,7 @@
  
 
     function renderTitle(timestamp) {
-        let elapsed = (timestamp - oldTimeStamp) / 1000;
+        // let elapsed = (timestamp - oldTimeStamp) / 1000;
         bCtx.fillStyle = ("#000");
         bCtx.fillRect(0, 0, gameWidth, gameHeight);
         const x = [52, 64, 91, 100, 106, 112, 124, 145, 154, 166, 172, 184, 196, 202, 208, 217, 238, 250, 256, 262, 271];

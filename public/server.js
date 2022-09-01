@@ -170,7 +170,8 @@ let timer = null;
 
 let matchRunning = !1;
 
-function spawnItems() {
+function gameUpdate() {
+    // On first call there are no items so spawn one at each spawn point
     if (!items.length) itemSpawnPoints.forEach((spawnPoint, i) => {
         items.push({
             id: i,
@@ -181,7 +182,7 @@ function spawnItems() {
         });
     });
     items.forEach(item => {
-        if (!item.type && Date.now() > item.time + 5000) item.type = (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 5) + 2;
+        if (item.type == 0 && Date.now() > item.time + 5000) item.type = (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 5) + 2;
     });
     io.sockets.emit('itemUpdate', items);
 
@@ -190,7 +191,7 @@ function spawnItems() {
         io.sockets.emit('chat', chat.map(i => i.txt));
     }
 
-    if (timer == null) timer = setInterval(spawnItems, 5000);
+    if (timer == null) timer = setInterval(gameUpdate, 5000);
 }
 
 /**
@@ -226,14 +227,14 @@ module.exports = {
         
         // console.log("Connected: " + socket.id);
 
-        spawnItems();
+        gameUpdate();
         
         socket.on("disconnect", () => {
             io.sockets.emit('playerDisconnect', socket.id);
         });
 
-        socket.on("removeRunes", () => {
-            io.sockets.emit('removeRunes', socket.id);
+        socket.on("removeRunes", (id) => {
+            io.sockets.emit('removeRunes', id);
         });
 
         socket.on("addRune", (rune) => {
@@ -244,7 +245,7 @@ module.exports = {
             io.sockets.emit('addProjectile', socket.id, projectile);
         });
 
-        socket.on("itemUpdate", (id) => {
+        socket.on("claimItem", (id, type) => {
             // console.log('got state update', player)
             let i = items.findIndex(o => {
                 return o.id === id;
@@ -253,7 +254,7 @@ module.exports = {
                 items[i].time = Date.now();
                 items[i].type = 0;
             }
-            io.sockets.emit('itemUpdate', items);
+            io.sockets.emit('claimItem', type);
         });
 
         socket.on("stateUpdate", (player) => {
