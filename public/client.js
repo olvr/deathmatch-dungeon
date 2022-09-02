@@ -41,6 +41,12 @@
     var bCtx = bCanvas.getContext("2d");
     // bCtx.imageSmoothingEnabled = false;
 
+    let cCanvas = document.createElement('canvas');
+    cCanvas.width = gameWidth;
+    cCanvas.height = gameHeight;
+    var cCtx = cCanvas.getContext("2d");
+    // bCtx.imageSmoothingEnabled = false;
+
     let matchRunning = !1;
     const keyboardState = {};
     const mouse = { x: 0, y: 0 };
@@ -50,6 +56,13 @@
     const projectileSize = 5;
     const maxRunes = 8;
     const startBounces = 5;
+
+    let flameFrame = 0;
+    let flameSize = 5;
+    let move = 0;
+    let flameStretch = 1;
+    let flameSkew = 0;
+    let sk = 0;
 
     let items = [];
     const msg = {txt: "", time: 0};
@@ -170,6 +183,7 @@
         }
     }
     
+    // Turn floor tiles at the top into a wall tile
     for (let i = 0; i < map.tiles.length; i++) {
         if (map.tiles[i] > 4) continue;
         let mapX = i % map.cols;
@@ -177,6 +191,26 @@
         if (map.getTile(mapX, mapY - 1) == 8 + map.wallOffset) map.tiles[i] = 5;
         if (map.getTile(mapX, mapY - 1) == 10 + map.wallOffset) map.tiles[i] = 6;
         if (map.getTile(mapX, mapY - 1) == 12 + map.wallOffset) map.tiles[i] = 7;
+    }
+
+    const torches = [];
+    for (let i = 0; i < map.tiles.length; i++) {
+        let mapX = i % map.cols;
+        let mapY = Math.floor(i / map.cols);
+        let tile = map.getTile(mapX, mapY);
+        if (tile == 7 || tile == 6) torches[i] = {frame: 0, skew: 0};
+    }
+    
+    const lightMap = Array(map.rows * map.cols).fill(0);
+    for (let i = 0; i < map.tiles.length; i++) {
+        let mapX = i % map.cols;
+        let mapY = Math.floor(i / map.cols);
+        let tile = map.getTile(mapX, mapY);
+        if (tile == 7 || tile == 6) {
+            lightMap[i] = 1;
+            lightMap[i + map.cols] = 1;
+            lightMap[i + map.cols * 2] = 1;
+        }
     }
 
     let sprites = new Image();
@@ -649,7 +683,7 @@
         bCtx.fillStyle = "rgb(2, 2, 2)";
         bCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Render floor
+        // Render floor and walls
         let startCol = Math.floor(gameState.viewport.x / map.tileSize);
         let endCol = startCol + (gameState.viewport.width / map.tileSize);
         // if (endCol > map.cols - 1) endCol = map.cols - 1;
@@ -667,10 +701,21 @@
                 let y = (r - startRow) * 16 + offsetY;
                 if (typeof s !== 'undefined' && tile && c >= 0 && c < map.cols && r >= 0 && r < map.rows) {
                     bCtx.drawImage(sprites, s.x, s.y, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
-                    if (tile == 7 || tile == 6) bCtx.drawImage(sprites, 80, 16, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
+                    // if (tile == 7 || tile == 6) bCtx.drawImage(sprites, 80, 16, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
+                    if (tile == 7 || tile == 6) torchAt(x, y, r * map.cols + c);
+                    // Shading
+                    // if (map.getTile(c, r-1) == 7 || map.getTile(c, r-1) == 6) continue;
+                    // if (map.getTile(c, r) == 7 || map.getTile(c, r) == 6) continue;
+                    // bCtx.globalAlpha = 0.4;
+                    // bCtx.fillStyle = "rgb(0, 0, 0)";
+                    // bCtx.fillRect(x, y, map.tileSize, map.tileSize);
+                    // bCtx.globalAlpha = 1;
                 }
             }
         }
+
+        // Move one the animation frame for the torches
+        flameFrame += 1;
 
         // bCtx.font = "10px sans-serif";
         // bCtx.fillStyle = "rgb(240, 240, 240)";
@@ -698,6 +743,59 @@
             if (item.type == 1) d.x = 48; // Potion
             bCtx.drawImage(sprites, d.x, d.y, spriteSize, spriteSize, item.x - gameState.viewport.x, item.y - gameState.viewport.y, spriteSize, spriteSize);
         });
+
+        /*
+        // Render shading
+        for (let c = startCol; c <= endCol; c++) {
+            for (let r = startRow; r <= endRow; r++) {
+                let x = (c - startCol) * 16 + offsetX;
+                let y = (r - startRow) * 16 + offsetY;
+                // if (lightMap[r * map.cols + c] == 0) {
+                //     bCtx.globalAlpha = 0.4;
+                //     bCtx.fillStyle = "rgb(0, 0, 0)";
+                //     bCtx.fillRect(x, y, map.tileSize, map.tileSize);
+                //     bCtx.globalAlpha = 1;
+                // }
+
+                if (map.getTile(c, r) == 6 || map.getTile(c, r) == 7) {
+                    bCtx.globalAlpha = 0.4;
+                        bCtx.fillStyle = "rgb(0, 0, 0)";
+                        bCtx.beginPath();
+                        bCtx.arc(x + map.tileSize / 2, y + 2 * map.tileSize, 2 * map.tileSize, 0, 2 * Math.PI);
+                        bCtx.fill();
+                        // bCtx.fillRect(x, y, map.tileSize, map.tileSize);
+                        bCtx.globalAlpha = 1;
+                }
+
+            }
+        }*/
+
+        // Render shading
+        cCtx.drawImage(bCanvas, 0, 0, gameWidth, gameHeight, 0, 0, gameWidth, gameHeight);
+        cCtx.globalAlpha = 0.2;
+        cCtx.fillStyle = "rgb(0, 0, 0)";
+        cCtx.fillRect(0, 0, gameWidth, gameHeight);
+        cCtx.globalAlpha = 1;
+        cCtx.save();
+        cCtx.beginPath();
+        for (let c = startCol; c <= endCol; c++) {
+            for (let r = startRow; r <= endRow; r++) {
+                let x = (c - startCol) * 16 + offsetX;
+                let y = (r - startRow) * 16 + offsetY;
+                if (map.getTile(c, r) == 6 || map.getTile(c, r) == 7) {
+                    cCtx.arc(Math.floor(x + map.tileSize / 2), Math.floor(y + 2 * map.tileSize), 2 * map.tileSize, 0, Math.PI * 2);
+                    cCtx.closePath();
+                }
+            }
+        }
+        cCtx.clip();
+        cCtx.drawImage(bCanvas, 0, 0, gameWidth, gameHeight, 0, 0, gameWidth, gameHeight);
+        cCtx.restore();
+        bCtx.drawImage(cCanvas, 0, 0, gameWidth, gameHeight, 0, 0, gameWidth, gameHeight);
+
+
+
+
 
         if (msg.txt) {
             if (Date.now() > msg.time + 3000) msg.txt = "";
@@ -818,7 +916,7 @@
             }
             // If player is invisible
             if (player.scroll == 5) {
-                bCtx.globalAlpha = (gameState.players.indexOf(player) == 0) ? 0.4 : 0;
+                bCtx.globalAlpha = (gameState.players.indexOf(player) == 0) ? 0.3 : 0;
             }
             bCtx.drawImage(sprites, dx, dy, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
             bCtx.restore();
@@ -882,7 +980,28 @@
         // sprites.src = "./sprites.png";
     }
     
- 
+    function sinRange(a, min, max) {
+        return ((max - min) * Math.sin(a) + max + min) / 2;
+    }
+
+    function torchAt(x, y, torch = -1) {
+        if (flameFrame > 10) { 
+            flameStretch = (Math.floor(Math.random() * 6) + 6) / 10;
+            sk = (Math.floor(Math.random() * 3) - 1) / 5;
+            move = Math.random() / 5;
+            flameSkew = (flameSkew > 2 * Math.PI) ? 0 : flameSkew + move;
+            flameFrame = 0;
+        }
+
+        bCtx.drawImage(sprites, 96, 16, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
+        bCtx.save();
+        bCtx.translate(x + flameSize, y + flameSize + 1);
+        bCtx.transform(1, 0, sk, flameStretch, 0, 0);
+        bCtx.scale(1, -1);
+        bCtx.drawImage(sprites, 112, 16, flameSize, flameSize, 0, 0, flameSize, flameSize);
+        bCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset
+        bCtx.restore();
+    }
 
     function renderTitle(timestamp) {
         // let elapsed = (timestamp - oldTimeStamp) / 1000;
@@ -898,7 +1017,22 @@
         bCtx.scale(-1, 1);
         bCtx.drawImage(sprites, 0, 0, spriteSize, spriteSize, 259, 16, spriteSize, spriteSize);
         bCtx.restore();
-
+        
+        // Test flame
+        let flameSize = 5;
+        let flameStretch = (Math.floor(Math.random() * 8) + 8) / 10;
+        bCtx.drawImage(sprites, 96, 16, spriteSize, spriteSize, 51, 100, spriteSize, spriteSize);
+        bCtx.save();
+        bCtx.translate(56, 100 + flameSize + 1);
+        bCtx.transform(1, 0, sinRange(flameSkew, 0.2, -0.2), flameStretch, 0, 0);
+        bCtx.scale(1, -1);
+        bCtx.drawImage(sprites, 112, 16, flameSize, flameSize, 0, 0, flameSize, flameSize);
+        bCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset
+        bCtx.restore();
+        let move = Math.random() / 9;
+        flameSkew = (flameSkew > 2 * Math.PI) ? 0 : flameSkew + move;
+        
+        
         write("Deathmatch Dungeon", gameWidth / 2, gameHeight / 5, '#fff', 3, 1);
         write("Deathmatch Dungeon", gameWidth / 2, gameHeight / 5 + 2, '#666', 3, 1);
         write("Deathmatch Dungeon", gameWidth / 2 + 1, gameHeight / 5 + 1, '#dd0a1e', 3, 1);
