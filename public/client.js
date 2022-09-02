@@ -2,15 +2,6 @@
 
 // (function () {
 
-    // let socket, //Socket.IO client
-    //     buttons, //Button elements
-    //     message, //Message element
-    //     score, //Score element
-    //     points = { //Game points
-    //         draw: 0,
-    //         win: 0,
-    //         lose: 0
-    //     };
     let socket;
     let connected;
     let titleScreen = !0;
@@ -24,28 +15,25 @@
     let oldTimeStamp = 0;
     let prevMouseDown = Date.now();
     let respawnTime = 0;
-    const gameWidth = 320;
-    const gameHeight = 180;
+    const gW = 320;
+    const gH = 180;
     let scale;
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
     const canvas = document.createElement("canvas");
-    canvas.setAttribute("width", gameWidth);
-    canvas.setAttribute("height", gameHeight);
+    canvas.setAttribute("width", gW);
+    canvas.setAttribute("height", gH);
     const ctx = canvas.getContext("2d");
-    // ctx.imageSmoothingEnabled = false;
     
     let bCanvas = document.createElement('canvas');
-    bCanvas.width = gameWidth;
-    bCanvas.height = gameHeight;
-    var bCtx = bCanvas.getContext("2d");
-    // bCtx.imageSmoothingEnabled = false;
+    bCanvas.width = gW;
+    bCanvas.height = gH;
+    const bCtx = bCanvas.getContext("2d");
 
     let cCanvas = document.createElement('canvas');
-    cCanvas.width = gameWidth;
-    cCanvas.height = gameHeight;
-    var cCtx = cCanvas.getContext("2d");
-    // bCtx.imageSmoothingEnabled = false;
+    cCanvas.width = gW;
+    cCanvas.height = gH;
+    const cCtx = cCanvas.getContext("2d");
 
     let matchRunning = !1;
     const keyboardState = {};
@@ -59,15 +47,12 @@
 
     let flameFrame = 0;
     let flameSize = 5;
-    let move = 0;
     let flameStretch = 1;
     let flameSkew = 0;
-    let sk = 0;
 
     let items = [];
     const msg = {txt: "", time: 0};
     const scrolls = ["","ricochet","split shot","double damage","runic hex", "invisibility"];
-    // const respawnPoints = [{x: 16, y: 208},{x: 16, y: 272},{x: 480, y: 208},{x: 480, y: 272}];
     const respawnPoints = [{x: 16, y: 248},{x: 16, y: 304},{x: 480, y: 248},{x: 480, y: 304}];
 
     const map = {
@@ -193,26 +178,6 @@
         if (map.getTile(mapX, mapY - 1) == 12 + map.wallOffset) map.tiles[i] = 7;
     }
 
-    const torches = [];
-    for (let i = 0; i < map.tiles.length; i++) {
-        let mapX = i % map.cols;
-        let mapY = Math.floor(i / map.cols);
-        let tile = map.getTile(mapX, mapY);
-        if (tile == 7 || tile == 6) torches[i] = {frame: 0, skew: 0};
-    }
-    
-    const lightMap = Array(map.rows * map.cols).fill(0);
-    for (let i = 0; i < map.tiles.length; i++) {
-        let mapX = i % map.cols;
-        let mapY = Math.floor(i / map.cols);
-        let tile = map.getTile(mapX, mapY);
-        if (tile == 7 || tile == 6) {
-            lightMap[i] = 1;
-            lightMap[i + map.cols] = 1;
-            lightMap[i + map.cols * 2] = 1;
-        }
-    }
-
     let sprites = new Image();
 
     const gameState = {
@@ -223,16 +188,15 @@
                 username: "",
                 playerId: Math.floor(Math.random() * 100000000),
                 sessionId: '',
-                // x: Math.floor((Math.random() * gameWidth) - spriteSize), y: Math.floor((Math.random() * gameHeight) - spriteSize),
-                x: 32,
-                y: 32,
-                hit: 0,
-                scroll: 0, // which magic scroll is active
-                health: 100,
-                facing: 1,
-                frame: 0,
-                walking: 0,
-                angle: 0,
+                x: 0, // World x coordinate
+                y: 0, // World y coordinate
+                hit: 0, // A timer to count down from when player is hit
+                scroll: 0, // Which magic scroll is active
+                health: 100, // Player's health
+                facing: 1, // Direction facing: 0 for left, 1 for right
+                frame: 0, // Current animation frame
+                walking: 0, // 1 if player is currently walking, 0 if not
+                angle: 0, // Angle to mouse: radians, clockwise, 0 to right
                 projectiles: [],
                 runes: []
             }
@@ -241,23 +205,23 @@
             following: {},
             x: 0,
             y: 0,
-            width: gameWidth,
-            height: gameHeight
+            width: gW,
+            height: gH
         }
     }
 
     const myPlayerId = gameState.players[0].playerId;
 
     function resizeCanvas() {
-        if (window.innerWidth < gameWidth || window.innerHeight < gameHeight) {
-            canvas.width = gameWidth;
-            canvas.height = gameHeight;
+        if (window.innerWidth < gW || window.innerHeight < gH) {
+            canvas.width = gW;
+            canvas.height = gH;
             scale = 1;
             return;
         }
-        let ratio = gameWidth / gameHeight;
-        let w = Math.floor(window.innerWidth / gameWidth) * gameWidth;
-        let h = Math.floor(window.innerHeight / gameHeight) * gameHeight;
+        let ratio = gW / gH;
+        let w = Math.floor(window.innerWidth / gW) * gW;
+        let h = Math.floor(window.innerHeight / gH) * gH;
         if (h < w / ratio) {
             canvas.width = h * ratio;
             canvas.height = h;
@@ -265,7 +229,7 @@
             canvas.width = w;
             canvas.height = w / ratio;
         }
-        scale = canvas.width / gameWidth;
+        scale = canvas.width / gW;
         blit();
     }
 
@@ -296,7 +260,6 @@
         });
 
         socket.on('playerDisconnect', function(sessionId) {
-            // gameState.players[0].sessionId = socket.sessionid;
             console.log("Player disconnected: " + sessionId);
             for (let i = 0; i < gameState.players.length; i++) {
                 if (gameState.players[i].sessionId == sessionId) {
@@ -316,13 +279,13 @@
         });
 
         socket.on('claimItem', function (type) {
-            // Potion
+            // Item claimed is a potion
             if (type == 1) {
                 gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
                 msg.txt = "Potion restores health";
                 msg.time = Date.now();
             }
-            // Scroll
+            // Item claimed is a scroll
             else if (type > 1) {
                 gameState.players[0].scroll = type - 1;
                 msg.txt = "You picked up a scroll of " + scrolls[type - 1];
@@ -338,7 +301,6 @@
         });
 
         socket.on('addRune', function (id, rune) {
-            // console.log(id, rune);
             let i = gameState.players.findIndex(o => {
                 return o.sessionId === id;
             });
@@ -350,25 +312,23 @@
             let i = gameState.players.findIndex(o => {
                 return o.sessionId === id;
             });
-            // if (gameState.players[i].projectiles.length >= maxProjectiles) gameState.players[i].projectiles.splice(0, 1);
             gameState.players[i].projectiles.push(projectile);
         });
 
         socket.on('stateUpdate', function (player) {
             if (player.playerId === myPlayerId) {
-                // ignore own update
+                // Ignore own update
                 return;
             }
 
             let playerWasFound = false;
             for (let i = 0; i < gameState.players.length; ++i) {
                 if (gameState.players[i].playerId === player.playerId) {
-                    //gameState.players[i] = player;
-                    // Update player object without losing references to it
+                    // Remove runes and projectiles, they are handled separately
                     delete player.runes;
                     delete player.projectiles;
+                    // Update player object without losing references to it
                     gameState.players[i] = Object.assign(gameState.players[i], player);
-
                     playerWasFound = true;
                     break;
                 }
@@ -385,6 +345,9 @@
         });
     }
 
+    /**
+     * Bind events
+     */
     function bindEvents() {
         document.addEventListener("keydown", e => {
             const reserveKeys = ["Tab"];
@@ -438,7 +401,7 @@
             // gameState.players.forEach(player => {
             // });
             // Face player based on mouse position
-            gameState.players[0].facing = (mouse.x < gameWidth / 2) ? 0 : 1;
+            gameState.players[0].facing = (mouse.x < gW / 2) ? 0 : 1;
 
         });
     
@@ -456,7 +419,7 @@
                 runeX -= runeX % map.tileSize;
                 runeY -= runeY % map.tileSize;
 
-                // Don't allow runes to be placed will immediate collision
+                // Don't allow runes to be placed with immediate collision
                 for (let j = 1; j < gameState.players.length; j++) {
                     if (rectCollision(gameState.players[j].x, gameState.players[j].y, spriteSize, spriteSize,runeX, runeY, spriteSize, spriteSize)) {
                         return;
@@ -465,9 +428,6 @@
 
                 // Only place runes on floor tiles
                 if (map.canMoveToXY(runeX, runeY)) {
-                    // console.log(runeX, runeY);
-                    // if (gameState.players[0].runes.length >= maxRunes) gameState.players[0].runes.splice(0, 1);
-                    // gameState.players[0].runes.push({x: runeX, y: runeY, remove: !1});
                     socket.emit("addRune", {x: runeX, y: runeY, remove: !1});
                 }
             }
@@ -491,22 +451,16 @@
                 y: gameState.players[0].y + spriteSize / 2 - projectileSize / 2 + Math.floor(dy * 10),
                 vx: dx * projectileSpeed,
                 vy: dy * projectileSpeed,
-                // vx: 0,
-                // vy: 0,
                 angle: gameState.players[0].angle,
                 bounces: startBounces
             }
 
-            // If not runic hex
-            // if (gameState.players[0].scroll != 4) gameState.players[0].projectiles.push(projectile);
+            // If not runic hex then emit projectile
             if (gameState.players[0].scroll != 4) socket.emit("addProjectile", projectile);
             
-            // If player has the split shot magic scroll
+            // If player has the split shot magic scroll add other shots
             if (gameState.players[0].scroll == 2) {
                 let multi = rotateVector([dx, dy], 10);
-                // gameState.players[0].projectiles.push({x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
-                // multi = rotateVector([dx, dy], -10);
-                // gameState.players[0].projectiles.push({x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
                 socket.emit("addProjectile", {x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
                 multi = rotateVector([dx, dy], -10);
                 socket.emit("addProjectile", {x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
@@ -558,14 +512,12 @@
 
     function gameUpdate() {
         // Update projectiles
-        // gameState.players.forEach(player => {
         for (let i = 0; i < gameState.players.length; i++) {
             gameState.players[i].projectiles.forEach(p => {
                 p.x += p.vx;
                 p.y += p.vy;
                 // Check for collision with players
                 for (let j = 0; j < gameState.players.length; j++) {
-                    // if (i == j && gameState.players[j].scroll != 1 && p.bounces == startBounces) continue; // Don't check own projectiles unless it's ricochet
                     if (i == j) continue; // Don't check own projectiles (TODO: unless it's ricochet?)
                     if (gameState.players[j].scroll == 5 || gameState.players[j].health < 1) continue;
                     if (p.x < gameState.players[j].x + spriteSize
@@ -615,7 +567,6 @@
             gameState.players[i].runes = gameState.players[i].runes.filter(r => {
                 return (r.remove !== true);
             });
-        // });
         }
 
         // Check for player collision with item
@@ -623,20 +574,7 @@
         for (let i = 0; i < items.length; i++) {
             // We picked up an item
             if (rectCollision(gameState.players[0].x, gameState.players[0].y,spriteSize, spriteSize, items[i].x, items[i].y, spriteSize, spriteSize)) {
-                // Potion
-                // if (items[i].type == 1) {
-                //     gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
-                //     msg.txt = "Potion restores health";
-                //     msg.time = Date.now();
-                // }
-                // // Scroll
-                // else if (items[i].type > 1) {
-                //     gameState.players[0].scroll = items[i].type - 1;
-                //     msg.txt = "You picked up a scroll of " + scrolls[items[i].type - 1];
-                //     msg.time = Date.now();
-                // }
                 itemIdClaimed = items[i].id;
-                // if (connected) socket.emit('itemUpdate', itemIdClaimed);
                 if (connected) socket.emit('claimItem', itemIdClaimed, items[i].type);
                 items[i].type = 0;
             }
@@ -667,15 +605,14 @@
             }
 
             // Move to the next walking frame or idle
-            p.frame = (p.frame < 3 && p.walking) ? p.frame += 0.075 : 0;
+            p.frame = (p.frame < 3 && p.walking == 1) ? p.frame += 0.075 : 0;
         }
 
         // Move viewport offset to follow player
-        gameState.viewport.x = gameState.viewport.following.x - (gameWidth / 2) + spriteSize / 2;
-        gameState.viewport.y = gameState.viewport.following.y - (gameHeight / 2) + spriteSize / 2;
+        gameState.viewport.x = gameState.viewport.following.x - (gW / 2) + spriteSize / 2;
+        gameState.viewport.y = gameState.viewport.following.y - (gH / 2) + spriteSize / 2;
 
         // Update the server with the new state
-        // if (connected) socket.emit('stateUpdate', gameState.players[0], itemIdClaimed);
         if (connected) socket.emit('stateUpdate', gameState.players[0]);
     }
 
@@ -701,20 +638,12 @@
                 let y = (r - startRow) * 16 + offsetY;
                 if (typeof s !== 'undefined' && tile && c >= 0 && c < map.cols && r >= 0 && r < map.rows) {
                     bCtx.drawImage(sprites, s.x, s.y, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
-                    // if (tile == 7 || tile == 6) bCtx.drawImage(sprites, 80, 16, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
                     if (tile == 7 || tile == 6) torchAt(x, y, r * map.cols + c);
-                    // Shading
-                    // if (map.getTile(c, r-1) == 7 || map.getTile(c, r-1) == 6) continue;
-                    // if (map.getTile(c, r) == 7 || map.getTile(c, r) == 6) continue;
-                    // bCtx.globalAlpha = 0.4;
-                    // bCtx.fillStyle = "rgb(0, 0, 0)";
-                    // bCtx.fillRect(x, y, map.tileSize, map.tileSize);
-                    // bCtx.globalAlpha = 1;
                 }
             }
         }
 
-        // Move one the animation frame for the torches
+        // Move the animation frame on for the torches
         flameFrame += 1;
 
         // bCtx.font = "10px sans-serif";
@@ -736,45 +665,18 @@
         });
 
         // Render items
-        // console.log(items);
         items.forEach(item => {
-            if (!item.type) return; // No item at spawn point
+            if (item.type == 0) return; // No item at spawn point
             let d = {x: 32, y: 16}; // Scroll
             if (item.type == 1) d.x = 48; // Potion
             bCtx.drawImage(sprites, d.x, d.y, spriteSize, spriteSize, item.x - gameState.viewport.x, item.y - gameState.viewport.y, spriteSize, spriteSize);
         });
 
-        /*
-        // Render shading
-        for (let c = startCol; c <= endCol; c++) {
-            for (let r = startRow; r <= endRow; r++) {
-                let x = (c - startCol) * 16 + offsetX;
-                let y = (r - startRow) * 16 + offsetY;
-                // if (lightMap[r * map.cols + c] == 0) {
-                //     bCtx.globalAlpha = 0.4;
-                //     bCtx.fillStyle = "rgb(0, 0, 0)";
-                //     bCtx.fillRect(x, y, map.tileSize, map.tileSize);
-                //     bCtx.globalAlpha = 1;
-                // }
-
-                if (map.getTile(c, r) == 6 || map.getTile(c, r) == 7) {
-                    bCtx.globalAlpha = 0.4;
-                        bCtx.fillStyle = "rgb(0, 0, 0)";
-                        bCtx.beginPath();
-                        bCtx.arc(x + map.tileSize / 2, y + 2 * map.tileSize, 2 * map.tileSize, 0, 2 * Math.PI);
-                        bCtx.fill();
-                        // bCtx.fillRect(x, y, map.tileSize, map.tileSize);
-                        bCtx.globalAlpha = 1;
-                }
-
-            }
-        }*/
-
-        // Render shading
-        cCtx.drawImage(bCanvas, 0, 0, gameWidth, gameHeight, 0, 0, gameWidth, gameHeight);
+         // Render shading
+        cCtx.drawImage(bCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
         cCtx.globalAlpha = 0.2;
         cCtx.fillStyle = "rgb(0, 0, 0)";
-        cCtx.fillRect(0, 0, gameWidth, gameHeight);
+        cCtx.fillRect(0, 0, gW, gH);
         cCtx.globalAlpha = 1;
         cCtx.save();
         cCtx.beginPath();
@@ -789,20 +691,17 @@
             }
         }
         cCtx.clip();
-        cCtx.drawImage(bCanvas, 0, 0, gameWidth, gameHeight, 0, 0, gameWidth, gameHeight);
+        cCtx.drawImage(bCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
         cCtx.restore();
-        bCtx.drawImage(cCanvas, 0, 0, gameWidth, gameHeight, 0, 0, gameWidth, gameHeight);
+        bCtx.drawImage(cCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
 
-
-
-
-
+        // Render messages
         if (msg.txt) {
             if (Date.now() > msg.time + 3000) msg.txt = "";
-            write(msg.txt, gameWidth / 2, 5, '#fff', 1, 1);
+            write(msg.txt, gW / 2, 5, '#fff', 1, 1);
         };
 
-        if (gameState.players.length == 1 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for players", gameWidth / 2, gameHeight / 5, '#fff', 2, 1);
+        if (gameState.players.length == 1 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for players", gW / 2, gH / 5, '#fff', 2, 1);
         
         // Render chat dialog
         if (chat.active) {
@@ -819,7 +718,6 @@
         }
 
         renderStats();
-
         blit();
     }
 
@@ -837,16 +735,11 @@
             const binaryChar = (fontCode > 0) ? fontCode : fontCode.codePointAt();
             const binary = (binaryChar || 0).toString(2);
             const width = Math.ceil(binary.length / height);
-            // totalWidth += width + 1;
             const marginX = charX + pixelSize;
-            
             const formattedBinary = binary.padStart(width * height, 0);
             const binaryCols = formattedBinary.match(new RegExp(`.{${height}}`, 'g'));
-
             binaryCols.map((column, colPos) =>
                 [...column].map((pixel, pixPos) => {
-                    // bCtx.fillStyle = !+pixel ? 'transparent' : color;
-                    // bCtx.fillRect(x + marginX + colPos * pixelSize, y + pixPos * pixelSize, pixelSize, pixelSize);
                     if (pixel == 1) output.push({fill: color, rectX: x + marginX + colPos * pixelSize, rectY: y + pixPos * pixelSize, pixelSize});
                 })
             );
@@ -877,25 +770,19 @@
         if (now - respawnTime > 2000) t = 1;
         if (now - respawnTime > 3000) t = 0;
         if (t && !first) {
-            write("Respawn in... " + ((t == 1) ? " " + t : t), gameWidth / 2, gameHeight / 5, '#fff', 2, 1);
-            // console.log("Respawn in " + t);
+            write("Respawn in... " + ((t == 1) ? " " + t : t), gW / 2, gH / 5, '#fff', 2, 1);
         } else {
-            // console.log("Respawn");
             const r = Math.floor(Math.random() * 3);
             player.health = 100;
             player.scroll = 0;
             player.hit = 0;
             player.x = respawnPoints[r].x;
             player.y = respawnPoints[r].y;
-            // player.runes.length = 0;
         }
     }
     
     function renderPlayer(player) {
         // Render player sprite
-        // bCtx.fillStyle = "rgb(255, 255, 0)";
-        // bCtx.fillRect(player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
-        
         if (player.health <= 0) {
             bCtx.drawImage(sprites, 0, spriteSize, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
             respawn(player);
@@ -936,7 +823,7 @@
     function renderProjectile(p) {
         let px = p.x - gameState.viewport.x;
         let py = p.y - gameState.viewport.y;
-        if (px < 0 || px > gameWidth - 1 || py < 0 || py > gameHeight - 1) return;
+        if (px < 0 || px > gW - 1 || py < 0 || py > gH - 1) return;
 
         // Rotatable projectile
         // bCtx.save();
@@ -965,38 +852,25 @@
         gameState.players[0].active = !0;
         gameState.players[0].entryTime = Date.now();
         bindSocket();
-
-        // resizeCanvas();
-        
         gameState.viewport.following = gameState.players[0];
-
         respawn(gameState.players[0]);
-            requestAnimationFrame(loop);
-        
-        // sprites.onload = function() {
-        //     respawn(gameState.players[0]);
-        //     requestAnimationFrame(loop);
-        // }
-        // sprites.src = "./sprites.png";
+        requestAnimationFrame(loop);
     }
     
     function sinRange(a, min, max) {
         return ((max - min) * Math.sin(a) + max + min) / 2;
     }
 
-    function torchAt(x, y, torch = -1) {
+    function torchAt(x, y) {
         if (flameFrame > 10) { 
             flameStretch = (Math.floor(Math.random() * 6) + 6) / 10;
-            sk = (Math.floor(Math.random() * 3) - 1) / 5;
-            move = Math.random() / 5;
-            flameSkew = (flameSkew > 2 * Math.PI) ? 0 : flameSkew + move;
+            flameSkew = (Math.floor(Math.random() * 3) - 1) / 5;
             flameFrame = 0;
         }
-
         bCtx.drawImage(sprites, 96, 16, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
         bCtx.save();
         bCtx.translate(x + flameSize, y + flameSize + 1);
-        bCtx.transform(1, 0, sk, flameStretch, 0, 0);
+        bCtx.transform(1, 0, flameSkew, flameStretch, 0, 0);
         bCtx.scale(1, -1);
         bCtx.drawImage(sprites, 112, 16, flameSize, flameSize, 0, 0, flameSize, flameSize);
         bCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset
@@ -1006,7 +880,7 @@
     function renderTitle(timestamp) {
         // let elapsed = (timestamp - oldTimeStamp) / 1000;
         bCtx.fillStyle = ("#000");
-        bCtx.fillRect(0, 0, gameWidth, gameHeight);
+        bCtx.fillRect(0, 0, gW, gH);
         const x = [52, 64, 91, 100, 106, 112, 124, 145, 154, 166, 172, 184, 196, 202, 208, 217, 238, 250, 256, 262, 271];
         for (let i = 0; i < 14; i++) {
             bCtx.drawImage(sprites, 16, 32, spriteSize, spriteSize, 51 + i * spriteSize, 16, spriteSize, spriteSize);
@@ -1018,39 +892,24 @@
         bCtx.drawImage(sprites, 0, 0, spriteSize, spriteSize, 259, 16, spriteSize, spriteSize);
         bCtx.restore();
         
-        // Test flame
-        let flameSize = 5;
-        let flameStretch = (Math.floor(Math.random() * 8) + 8) / 10;
-        bCtx.drawImage(sprites, 96, 16, spriteSize, spriteSize, 51, 100, spriteSize, spriteSize);
-        bCtx.save();
-        bCtx.translate(56, 100 + flameSize + 1);
-        bCtx.transform(1, 0, sinRange(flameSkew, 0.2, -0.2), flameStretch, 0, 0);
-        bCtx.scale(1, -1);
-        bCtx.drawImage(sprites, 112, 16, flameSize, flameSize, 0, 0, flameSize, flameSize);
-        bCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset
-        bCtx.restore();
-        let move = Math.random() / 9;
-        flameSkew = (flameSkew > 2 * Math.PI) ? 0 : flameSkew + move;
-        
-        
-        write("Deathmatch Dungeon", gameWidth / 2, gameHeight / 5, '#fff', 3, 1);
-        write("Deathmatch Dungeon", gameWidth / 2, gameHeight / 5 + 2, '#666', 3, 1);
-        write("Deathmatch Dungeon", gameWidth / 2 + 1, gameHeight / 5 + 1, '#dd0a1e', 3, 1);
+        write("Deathmatch Dungeon", gW / 2, gH / 5, '#fff', 3, 1);
+        write("Deathmatch Dungeon", gW / 2, gH / 5 + 2, '#666', 3, 1);
+        write("Deathmatch Dungeon", gW / 2 + 1, gH / 5 + 1, '#dd0a1e', 3, 1);
         bCtx.fillStyle = "#aa0a1e";
         if (timestamp > oldTimeStamp + 1000) {
             if (Math.random() < 0.5) {
                 let r = Math.floor(Math.random() * x.length);
-                drips.push({x: x[r], y: gameHeight / 5 + 1});
+                drips.push({x: x[r], y: gH / 5 + 1});
                 if (Math.random() < 0.5) {
                     let r = Math.floor(Math.random() * x.length);
-                    drips.push({x: x[r], y: gameHeight / 5 + 1});
+                    drips.push({x: x[r], y: gH / 5 + 1});
                 }
             }
             oldTimeStamp = timestamp;
         }
         drips.forEach(drip => {
-            if (drip.y > gameHeight) drip.remove = !0; 
-            if (drip.y < gameHeight / 5 + 1 + 28) bCtx.fillRect(drip.x, gameHeight / 5 + 1, 3, drip.y - gameHeight / 5 + 1);
+            if (drip.y > gH) drip.remove = !0; 
+            if (drip.y < gH / 5 + 1 + 28) bCtx.fillRect(drip.x, gH / 5 + 1, 3, drip.y - gH / 5 + 1);
             bCtx.fillRect(drip.x, drip.y, 3, 3);
             drip.y += drip.y / 120;
         });
@@ -1068,7 +927,6 @@
     }
     
     function welcome() {
-        // gameState.players[0].username = "test";
         bindEvents();
         document.body.appendChild(canvas);
         resizeCanvas();
