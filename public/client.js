@@ -35,7 +35,6 @@
     cCanvas.height = gH;
     const cCtx = cCanvas.getContext("2d");
 
-    let matchRunning = !1;
     const keyboardState = {};
     const mouse = { x: 0, y: 0 };
     const playerSpeed = 2; // was 1 at 120 fps
@@ -52,8 +51,21 @@
 
     let items = [];
     const msg = {txt: "", time: 0};
-    const scrolls = ["","ricochet","split shot","double damage","runic hex", "invisibility"];
+    const scrolls = ["fireball","ricochet","split shot","double damage","runic hex", "invisibility"];
     const respawnPoints = [{x: 16, y: 248},{x: 16, y: 304},{x: 480, y: 248},{x: 480, y: 304}];
+
+    const match = {
+        duration: 180,
+        launch: !1,
+        running: !1,
+        startTime: 0,
+        ended: !1,
+        launchTime: 0
+    }
+
+    const messages = {
+        matchLaunch: ""
+    }
 
     const map = {
         cols: 32,
@@ -193,10 +205,15 @@
                 hit: 0, // A timer to count down from when player is hit
                 scroll: 0, // Which magic scroll is active
                 health: 100, // Player's health
+                dead: !1, // Awaiting respawn
+                lastHitBy: 0, // Player most recently hit by
+                lastHitByScroll: 0, // Scroll most recently hit by
                 facing: 1, // Direction facing: 0 for left, 1 for right
                 frame: 0, // Current animation frame
                 walking: 0, // 1 if player is currently walking, 0 if not
                 angle: 0, // Angle to mouse: radians, clockwise, 0 to right
+                frags: 0,
+                deaths: 0,
                 projectiles: [],
                 runes: []
             }
@@ -274,22 +291,35 @@
             chat.chats = updateChat;
         });
 
+        socket.on('addFrag', function (id) {
+            let i = gameState.players.findIndex(o => {
+                return o.sessionId === id;
+            });
+            if (i != -1) gameState.players[i].frags += 1;
+            // console.log("Frags: " + gameState.players[0].frags)
+        });
+
         socket.on('itemUpdate', function (updateItems) {
             items = updateItems;
         });
 
-        socket.on('claimItem', function (type) {
-            // Item claimed is a potion
-            if (type == 1) {
-                gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
-                msg.txt = "Potion restores health";
-                msg.time = Date.now();
-            }
-            // Item claimed is a scroll
-            else if (type > 1) {
-                gameState.players[0].scroll = type - 1;
-                msg.txt = "You picked up a scroll of " + scrolls[type - 1];
-                msg.time = Date.now();
+        socket.on('claimItem', function (type, id) {
+            let i = gameState.players.findIndex(o => {
+                return o.sessionId === id;
+            });
+            if (i == 0) {
+                // Item claimed is a potion
+                if (type == 1) {
+                    gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
+                    msg.txt = "Potion restores health";
+                    msg.time = Date.now();
+                }
+                // Item claimed is a scroll
+                else if (type > 1) {
+                    gameState.players[0].scroll = type - 1;
+                    msg.txt = "You picked up a scroll of " + scrolls[type - 1];
+                    msg.time = Date.now();
+                }
             }
         });
 
@@ -297,7 +327,7 @@
             let i = gameState.players.findIndex(o => {
                 return o.sessionId === id;
             });
-            gameState.players[i].runes.length = 0;
+            if (i != -1) gameState.players[i].runes.length = 0;
         });
 
         socket.on('addRune', function (id, rune) {
@@ -312,7 +342,14 @@
             let i = gameState.players.findIndex(o => {
                 return o.sessionId === id;
             });
-            gameState.players[i].projectiles.push(projectile);
+            if (i != -1) gameState.players[i].projectiles.push(projectile);
+        });
+        
+        socket.on('startMatch', function () {
+            // console.log('start match')
+            match.startTime = Date.now();
+            match.launch = !0;
+            match.launchTime = Date.now();
         });
 
         socket.on('stateUpdate', function (player) {
@@ -327,6 +364,7 @@
                     // Remove runes and projectiles, they are handled separately
                     delete player.runes;
                     delete player.projectiles;
+                    delete player.frags;
                     // Update player object without losing references to it
                     gameState.players[i] = Object.assign(gameState.players[i], player);
                     playerWasFound = true;
@@ -340,6 +378,7 @@
                 if (player.entryTime > gameState.players[0].entryTime) {
                     msg.txt = player.username + " entered the dungeon";
                     msg.time = Date.now();
+                    if (!match.running) socket.emit('startMatch');  
                 }
             }
         });
@@ -406,6 +445,16 @@
         });
     
         document.addEventListener("mousedown", e => {
+            if (gameState.players[0].dead) {
+                messages.respawn = "";
+                respawn();
+            }
+            if (match.ended) {
+                match.ended = !1;
+                gameState.players[0].active = !0;
+                gameState.players[0].entryTime = Date.now();
+                respawn()
+            }
             if (!gameState.players[0].active || Date.now() < prevMouseDown + 100) return;
             prevMouseDown = Date.now();
 
@@ -482,15 +531,17 @@
         // });
     }
 
-    function playerHit(player, attacker) {
+    async function playerHit(player, attacker) {
+        // console.log(player.username + ": " + player.health)
         if (player.health <= 0 || player.scroll == 5) return;
         player.hit = 20;
         player.health -= (attacker.scroll == 3) ? 20 : 10;
         if (player.health <= 0) {
             player.health = 0;
             socket.emit("removeRunes", player.sessionId);
-            respawnTime = Date.now();
+            if (!match.launch) respawnTime = Date.now();
             if (gameState.players.indexOf(attacker) == 0) {
+                socket.emit("addFrag");
                 msg.txt = "Pwnage! " + player.username + " is out for the count!";
                 msg.time = Date.now();
             }
@@ -511,21 +562,70 @@
     }
 
     function gameUpdate() {
+        // Check for match starting
+        if (match.launchTime > 0) {
+            let countdown = 3 - Math.floor((Date.now() - match.launchTime) / 1000);
+            messages.matchLaunch = "Match launch in " + countdown;
+            // Start the match
+            if (Date.now() > match.launchTime + 3000) {
+                messages.matchLaunch = "";
+                match.launchTime = 0;
+                match.startTime = Date.now();
+                respawn();
+                match.running = !0;
+                for (let i = 1; i < gameState.players.length; i++) {
+                    gameState.players[i].frags = 0;
+                    gameState.players[i].deaths = 0;
+                }
+            }
+        }
+        // Check for match ending
+        if (match.running && Date.now() > match.startTime + match.duration * 1000) {
+            match.running = !1;
+            match.ended = !0;
+            match.startTime = 0;
+            // gameState.players[0].entryTime = 0;
+            for (let i = 1; i < gameState.players.length; i++) {
+                gameState.players[i].entryTime = 0;
+            }
+        }
+
+        // Check if match should be launched
+        if (!match.ended && !match.running && match.launchTime == 0) {
+            for (let i = 1; i < gameState.players.length; i++) {
+                // console.log(gameState.players[i].entryTime)
+                if (gameState.players[i].entryTime > 0 && gameState.players[i].entryTime > gameState.players[0].entryTime) {
+                    // console.log(gameState.players[i].entryTime, gameState.players[0].entryTime)
+                    socket.emit('startMatch');
+                    break;
+                }
+            }
+        }
+
         // Update projectiles
         for (let i = 0; i < gameState.players.length; i++) {
-            gameState.players[i].projectiles.forEach(p => {
+            gameState.players[i].projectiles.forEach(async p => {
                 p.x += p.vx;
                 p.y += p.vy;
                 // Check for collision with players
                 for (let j = 0; j < gameState.players.length; j++) {
                     if (i == j) continue; // Don't check own projectiles (TODO: unless it's ricochet?)
-                    if (gameState.players[j].scroll == 5 || gameState.players[j].health < 1) continue;
+                    // if (gameState.players[j].scroll == 5 || gameState.players[j].health < 1) continue;
+                    if (gameState.players[j].scroll == 5) continue;
                     if (p.x < gameState.players[j].x + spriteSize
                         && p.x + projectileSize > gameState.players[j].x
                         && p.y < gameState.players[j].y + spriteSize
                         && projectileSize + p.y > gameState.players[j].y) {
                         p.remove = true;
-                        playerHit(gameState.players[j], gameState.players[i]);
+                        // await playerHit(gameState.players[j], gameState.players[i]);
+                        // Player hit
+                        gameState.players[j].hit = 10;
+                        if (j == 0 && gameState.players[0].health > 0) {
+                            gameState.players[0].health -= (gameState.players[i].scroll == 3) ? 20 : 10;
+                            gameState.players[0].lastHitBy = gameState.players[i].sessionId;
+                            gameState.players[0].lastHitByScroll = gameState.players[i].scroll;
+                            // console.log(gameState.players[0].health);
+                        }
                     }
                 }
                 // Check for collision with walls
@@ -559,14 +659,39 @@
                     if (i == j) continue; // Don't check own runes
                     if (gameState.players[j].scroll == 5) continue;
                     if (rectCollision(gameState.players[j].x, gameState.players[j].y, spriteSize, spriteSize, r.x, r.y, spriteSize, spriteSize)) {
-                        if (!r.remove) playerHit(gameState.players[j], gameState.players[i]);
-                        r.remove = true;
+                        // if (!r.remove) playerHit(gameState.players[j], gameState.players[i]);
+                        if (j == 0 && !r.remove && gameState.players[j].health > 0) {
+                            gameState.players[j].health -= 10;
+                            gameState.players[j].lastHitBy = gameState.players[i].sessionId;
+                            gameState.players[j].lastHitByScroll = gameState.players[i].scroll;
+                        }
+                        if (!r.remove) r.remove = true;
                     }
                 }
             });
             gameState.players[i].runes = gameState.players[i].runes.filter(r => {
                 return (r.remove !== true);
             });
+            if (gameState.players[i].dead) {
+                let index = gameState.players.findIndex(o => {
+                    return o.sessionId === gameState.players[i].lastHitBy;
+                });
+                if (index != -1) {
+                    msg.txt = gameState.players[i].username + " got rekt by " + gameState.players[index].username + "'s " + scrolls[gameState.players[i].lastHitByScroll];
+                    msg.time = Date.now();
+                }
+            }
+        }
+
+        // console.log(gameState.players[0].health, gameState.players[0].dead) ;
+        if (gameState.players[0].health <= 0 && !gameState.players[0].dead) {
+            // console.log("im dead")
+            gameState.players[0].dead = !0;
+            messages.respawn = "Press fire to respawn";
+            socket.emit("removeRunes");
+            socket.emit("addFrag", gameState.players[0].lastHitBy);
+            gameState.players[0].deaths++;
+            if (match.launchTime == 0) respawnTime = Date.now();
         }
 
         // Check for player collision with item
@@ -620,88 +745,130 @@
         bCtx.fillStyle = "rgb(2, 2, 2)";
         bCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Render floor and walls
-        let startCol = Math.floor(gameState.viewport.x / map.tileSize);
-        let endCol = startCol + (gameState.viewport.width / map.tileSize);
-        // if (endCol > map.cols - 1) endCol = map.cols - 1;
-        let startRow = Math.floor(gameState.viewport.y / map.tileSize);
-        let endRow = startRow + (gameState.viewport.height / map.tileSize);
-        // if (endRow > map.rows - 1) endRow = map.rows - 1;
-        let offsetX = -gameState.viewport.x + startCol * map.tileSize;
-        let offsetY = -gameState.viewport.y + startRow * map.tileSize;
-        for (let c = startCol; c <= endCol; c++) {
-            for (let r = startRow; r <= endRow; r++) {
-                let tile = map.getTile(c, r);
-                // console.log(tile, c, r);
-                let s = map.getSourceCoords(tile);
-                let x = (c - startCol) * 16 + offsetX;
-                let y = (r - startRow) * 16 + offsetY;
-                if (typeof s !== 'undefined' && tile && c >= 0 && c < map.cols && r >= 0 && r < map.rows) {
-                    bCtx.drawImage(sprites, s.x, s.y, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
-                    if (tile == 7 || tile == 6) torchAt(x, y, r * map.cols + c);
+        // Render match end screen
+        if (match.ended) {
+            write("match results", gW / 2, 2, "#fff", 3 , 1);
+            write("Player", 20, 32)
+            write("Score", 200, 32)
+            write("Deaths", 250, 32)
+            gameState.players.forEach((player, i) => {
+                write(player.username, 20, 50 + i * 20);
+                write(player.frags, 220, 50 + i * 20);
+                write(player.deaths, 270, 50 + i * 20);
+            });
+        } else {
+            // Render floor and walls
+            let startCol = Math.floor(gameState.viewport.x / map.tileSize);
+            let endCol = startCol + (gameState.viewport.width / map.tileSize);
+            // if (endCol > map.cols - 1) endCol = map.cols - 1;
+            let startRow = Math.floor(gameState.viewport.y / map.tileSize);
+            let endRow = startRow + (gameState.viewport.height / map.tileSize);
+            // if (endRow > map.rows - 1) endRow = map.rows - 1;
+            let offsetX = -gameState.viewport.x + startCol * map.tileSize;
+            let offsetY = -gameState.viewport.y + startRow * map.tileSize;
+            for (let c = startCol; c <= endCol; c++) {
+                for (let r = startRow; r <= endRow; r++) {
+                    let tile = map.getTile(c, r);
+                    // console.log(tile, c, r);
+                    let s = map.getSourceCoords(tile);
+                    let x = (c - startCol) * 16 + offsetX;
+                    let y = (r - startRow) * 16 + offsetY;
+                    if (typeof s !== 'undefined' && tile && c >= 0 && c < map.cols && r >= 0 && r < map.rows) {
+                        bCtx.drawImage(sprites, s.x, s.y, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
+                        if (tile == 7 || tile == 6) torchAt(x, y, r * map.cols + c);
+                    }
+                }
+            }
+
+            // Move the animation frame on for the torches
+            flameFrame += 1;
+
+            // bCtx.font = "10px sans-serif";
+            // bCtx.fillStyle = "rgb(240, 240, 240)";
+            // bCtx.fillText("Mouse: " + mouse.x + ", " + mouse.y + " Player: " + gameState.players[0].x + ", " + gameState.players[0].y, 5, 10);
+
+            // Render players and their projectiles
+            gameState.players.forEach(player => {
+                // Render the runes
+                player.runes.forEach(rune => {
+                    bCtx.drawImage(sprites, 64, 16, spriteSize, spriteSize, rune.x - gameState.viewport.x, rune.y - gameState.viewport.y, spriteSize, spriteSize);
+                });
+                // Render the character
+                renderPlayer(player);
+                // Render the projectiles
+                player.projectiles.forEach(projectile => {
+                    renderProjectile(projectile);
+                });
+            });
+
+            // Render items
+            items.forEach(item => {
+                if (item.type == 0) return; // No item at spawn point
+                let d = {x: 32, y: 16}; // Scroll
+                if (item.type == 1) d.x = 48; // Potion
+                bCtx.drawImage(sprites, d.x, d.y, spriteSize, spriteSize, item.x - gameState.viewport.x, item.y - gameState.viewport.y, spriteSize, spriteSize);
+            });
+
+            // Render shading
+            cCtx.drawImage(bCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
+            cCtx.globalAlpha = 0.2;
+            cCtx.fillStyle = "rgb(0, 0, 0)";
+            cCtx.fillRect(0, 0, gW, gH);
+            cCtx.globalAlpha = 1;
+            cCtx.save();
+            cCtx.beginPath();
+            for (let c = startCol; c <= endCol; c++) {
+                for (let r = startRow; r <= endRow; r++) {
+                    let x = (c - startCol) * 16 + offsetX;
+                    let y = (r - startRow) * 16 + offsetY;
+                    if (map.getTile(c, r) == 6 || map.getTile(c, r) == 7) {
+                        cCtx.arc(Math.floor(x + map.tileSize / 2), Math.floor(y + 2 * map.tileSize), 2 * map.tileSize, 0, Math.PI * 2);
+                        cCtx.closePath();
+                    }
+                }
+            }
+            cCtx.clip();
+            cCtx.drawImage(bCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
+            cCtx.restore();
+            bCtx.drawImage(cCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
+
+            // Render messages
+            if (msg.txt) {
+                if (Date.now() > msg.time + 3000) msg.txt = "";
+                write(msg.txt, gW / 2, 5, '#fff', 1, 1);
+            };
+
+            if (gameState.players.length == 1 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for players", gW / 2, gH / 5, '#fff', 2, 1);
+
+            if (match.launch) {
+                // if (respawnTime == 0) respawnTime = Date.now();
+                // respawn(gameState.players[0]);
+
+                // let t = (3 - Math.floor((Date.now() - match.startTime) / 1000));
+                // write("Match starting in... " + ((t > 1) ? t : " " + t), gW / 2, gH / 5, '#fff', 2, 1)
+            }
+
+            //
+            if (Date.now() < match.launchTime + 3000) {
+                write(messages.matchLaunch, gW / 2, 140, '#0f0', 2, 1);
+            }
+            
+            if (gameState.players[0].dead) {
+                write(messages.respawn, gW / 2, 150, '#0f0', 2, 1);
+            }
+
+            // Render match timer
+            if (match.running) {
+                let s = Math.floor((Date.now() - match.startTime) / 1000);
+                s = match.duration - s;
+                if (s >= 0) { 
+                    let m = Math.floor(s / 60);
+                    s = s % 60;
+                    // write(((m == 1) ? " " + m : m) + ":" + ((s < 10) ? "0" + s : s), 290, 2);
+                    write(m + ":" + ((s < 10) ? "0" + s : s), 290, 2);
                 }
             }
         }
-
-        // Move the animation frame on for the torches
-        flameFrame += 1;
-
-        // bCtx.font = "10px sans-serif";
-        // bCtx.fillStyle = "rgb(240, 240, 240)";
-        // bCtx.fillText("Mouse: " + mouse.x + ", " + mouse.y + " Player: " + gameState.players[0].x + ", " + gameState.players[0].y, 5, 10);
-
-        // Render players and their projectiles
-        gameState.players.forEach(player => {
-            // Render the runes
-            player.runes.forEach(rune => {
-                bCtx.drawImage(sprites, 64, 16, spriteSize, spriteSize, rune.x - gameState.viewport.x, rune.y - gameState.viewport.y, spriteSize, spriteSize);
-            });
-            // Render the character
-            renderPlayer(player);
-            // Render the projectiles
-            player.projectiles.forEach(projectile => {
-                renderProjectile(projectile);
-            });
-        });
-
-        // Render items
-        items.forEach(item => {
-            if (item.type == 0) return; // No item at spawn point
-            let d = {x: 32, y: 16}; // Scroll
-            if (item.type == 1) d.x = 48; // Potion
-            bCtx.drawImage(sprites, d.x, d.y, spriteSize, spriteSize, item.x - gameState.viewport.x, item.y - gameState.viewport.y, spriteSize, spriteSize);
-        });
-
-         // Render shading
-        cCtx.drawImage(bCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
-        cCtx.globalAlpha = 0.2;
-        cCtx.fillStyle = "rgb(0, 0, 0)";
-        cCtx.fillRect(0, 0, gW, gH);
-        cCtx.globalAlpha = 1;
-        cCtx.save();
-        cCtx.beginPath();
-        for (let c = startCol; c <= endCol; c++) {
-            for (let r = startRow; r <= endRow; r++) {
-                let x = (c - startCol) * 16 + offsetX;
-                let y = (r - startRow) * 16 + offsetY;
-                if (map.getTile(c, r) == 6 || map.getTile(c, r) == 7) {
-                    cCtx.arc(Math.floor(x + map.tileSize / 2), Math.floor(y + 2 * map.tileSize), 2 * map.tileSize, 0, Math.PI * 2);
-                    cCtx.closePath();
-                }
-            }
-        }
-        cCtx.clip();
-        cCtx.drawImage(bCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
-        cCtx.restore();
-        bCtx.drawImage(cCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
-
-        // Render messages
-        if (msg.txt) {
-            if (Date.now() > msg.time + 3000) msg.txt = "";
-            write(msg.txt, gW / 2, 5, '#fff', 1, 1);
-        };
-
-        if (gameState.players.length == 1 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for players", gW / 2, gH / 5, '#fff', 2, 1);
         
         // Render chat dialog
         if (chat.active) {
@@ -717,7 +884,12 @@
             }
         }
 
-        renderStats();
+        if (!match.ended) {
+            // Render stats
+            bCtx.drawImage(sprites, 80, 0, 11, 10, 1, 2, 11, 10);
+            write(gameState.players[0].health, 14, 2, '#fff', 2);
+        }
+
         blit();
     }
 
@@ -734,7 +906,7 @@
             const fontCode = chars[char.charCodeAt()] || '';
             const binaryChar = (fontCode > 0) ? fontCode : fontCode.codePointAt();
             const binary = (binaryChar || 0).toString(2);
-            const width = Math.ceil(binary.length / height);
+            const width = (fontCode == 31) ? 3 : Math.ceil(binary.length / height);
             const marginX = charX + pixelSize;
             const formattedBinary = binary.padStart(width * height, 0);
             const binaryCols = formattedBinary.match(new RegExp(`.{${height}}`, 'g'));
@@ -755,37 +927,56 @@
         return totalWidth;
     }
 
-    function renderStats() {
-        bCtx.fillStyle = "rgba(02, 02, 02, 0.7)";
-        bCtx.fillRect(0, 0, 41, 14);
-        bCtx.drawImage(sprites, 80, 0, 11, 10, 1, 2, 11, 10);
-        write(gameState.players[0].health, 14, 2, '#fff', 2);
-    }
-    
-    function respawn(player, first = !1) {
-        if (gameState.players.indexOf(player) !== 0) return;
-        const now = Date.now();
-        let t = 3;
-        if (now - respawnTime > 1000) t = 2;
-        if (now - respawnTime > 2000) t = 1;
-        if (now - respawnTime > 3000) t = 0;
-        if (t && !first) {
-            write("Respawn in... " + ((t == 1) ? " " + t : t), gW / 2, gH / 5, '#fff', 2, 1);
-        } else {
-            const r = Math.floor(Math.random() * 3);
-            player.health = 100;
-            player.scroll = 0;
-            player.hit = 0;
-            player.x = respawnPoints[r].x;
-            player.y = respawnPoints[r].y;
+    function respawn() {
+        const player = gameState.players[0];
+        const r = Math.floor(Math.random() * 3);
+        player.health = 100;
+        player.dead = !1;
+        player.scroll = 0;
+        player.hit = 0;
+        player.x = respawnPoints[r].x;
+        player.y = respawnPoints[r].y;
+        if (!match.running) {
+            player.frags = 0;
+            player.deaths = 0;
         }
     }
+
+    // function respawn(player) {
+    //     if (gameState.players.indexOf(player) !== 0) return;
+    //     const now = Date.now();
+    //     let t = 3;
+    //     if (now - respawnTime > 1000) t = 2;
+    //     if (now - respawnTime > 2000) t = 1;
+    //     if (now - respawnTime > 3000) t = 0;
+    //     if (t) {
+    //         // write(((match.launch) ? "Match starting" : "Respawn") + " in... " + ((t == 1) ? " " + t : t), gW / 2, gH / 5, '#fff', 2, 1);
+    //         write(((match.launch) ? "Match starting" : "Respawn") + " in... " + t, gW / 2, gH / 5, '#fff', 2, 1);
+    //     } else {
+    //         const r = Math.floor(Math.random() * 3);
+    //         player.health = 100;
+    //         player.dead = !1;
+    //         player.scroll = 0;
+    //         player.hit = 0;
+    //         player.x = respawnPoints[r].x;
+    //         player.y = respawnPoints[r].y;
+    //         if (!match.running) {
+    //             player.frags = 0;
+    //             player.deaths = 0;
+    //         }
+    //         // if (match.launch) {
+    //         //     match.launch = !1;
+    //         //     match.running = !0;
+    //         //     match.startTime = Date.now();
+    //         // }
+    //     }
+    // }
     
     function renderPlayer(player) {
         // Render player sprite
         if (player.health <= 0) {
             bCtx.drawImage(sprites, 0, spriteSize, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
-            respawn(player);
+            // respawn(player);
         } else {
             // Flip the player sprite if it is facing left
             bCtx.save();
@@ -853,13 +1044,13 @@
         gameState.players[0].entryTime = Date.now();
         bindSocket();
         gameState.viewport.following = gameState.players[0];
-        respawn(gameState.players[0]);
+        respawn();
         requestAnimationFrame(loop);
     }
     
-    function sinRange(a, min, max) {
-        return ((max - min) * Math.sin(a) + max + min) / 2;
-    }
+    // function sinRange(a, min, max) {
+    //     return ((max - min) * Math.sin(a) + max + min) / 2;
+    // }
 
     function torchAt(x, y) {
         if (flameFrame > 10) { 
@@ -883,6 +1074,7 @@
         bCtx.fillRect(0, 0, gW, gH);
         const x = [52, 64, 91, 100, 106, 112, 124, 145, 154, 166, 172, 184, 196, 202, 208, 217, 238, 250, 256, 262, 271];
         for (let i = 0; i < 14; i++) {
+            // (Math.floor(Math.random() * 4) * 16) + 16
             bCtx.drawImage(sprites, 16, 32, spriteSize, spriteSize, 51 + i * spriteSize, 16, spriteSize, spriteSize);
         }
         bCtx.drawImage(sprites, 0, 0, spriteSize, spriteSize, 51, 16, spriteSize, spriteSize);
@@ -920,8 +1112,8 @@
         let w = write("Enter your name: " + gameState.players[0].username, 49, 75, '#eee', 2, 0);
         bCtx.fillStyle = "#eee";
         bCtx.fillRect(w + 49 + 2, 75, 6, 10); // Cursor
-        write("WASD or arrows to move, mouse to aim, click to shoot", 50, 120, '#eee', 1);
-        write("Tab to open chat", 50, 130, '#eee', 1);
+        write("WASD/arrows to move, mouse to aim, click to shoot", 50, 120, '#eee', 1);
+        write("Tab to chat", 50, 130, '#eee', 1);
         blit();
         if (titleScreen) requestAnimationFrame(renderTitle);
     }

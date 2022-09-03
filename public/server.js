@@ -167,6 +167,7 @@ let chat = [];
 const maxChats = 20;
 const maxChatChars = 40;
 let timer = null;
+let matchStartTime = 0;
 
 let matchRunning = !1;
 
@@ -233,8 +234,8 @@ module.exports = {
             io.sockets.emit('playerDisconnect', socket.id);
         });
 
-        socket.on("removeRunes", (id) => {
-            io.sockets.emit('removeRunes', id);
+        socket.on("removeRunes", () => {
+            io.sockets.emit('removeRunes', socket.id);
         });
 
         socket.on("addRune", (rune) => {
@@ -254,7 +255,7 @@ module.exports = {
                 items[i].time = Date.now();
                 items[i].type = 0;
             }
-            io.sockets.emit('claimItem', type);
+            io.sockets.emit('claimItem', type, socket.id);
         });
 
         socket.on("stateUpdate", (player) => {
@@ -268,6 +269,15 @@ module.exports = {
             if (chat.push({txt: user + ": " + updateTxt.substring(0, maxChatChars + 1), time: Date.now()}) > maxChats) chat.splice(0, 1);
             // console.log(chat);
             io.sockets.emit('chat', chat.map(i => i.txt));
+        });
+        
+        socket.on("startMatch", () => {
+            matchStartTime = Date.now();
+            io.sockets.emit('startMatch');
+        });
+
+        socket.on("addFrag", (id) => {
+            io.sockets.emit('addFrag', id);
         });
         
     },
