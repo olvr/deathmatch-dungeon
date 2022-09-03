@@ -60,7 +60,8 @@
         running: !1,
         startTime: 0,
         ended: !1,
-        launchTime: 0
+        launchTime: 0,
+        results: []
     }
 
     const messages = {
@@ -531,26 +532,26 @@
         // });
     }
 
-    async function playerHit(player, attacker) {
-        // console.log(player.username + ": " + player.health)
-        if (player.health <= 0 || player.scroll == 5) return;
-        player.hit = 20;
-        player.health -= (attacker.scroll == 3) ? 20 : 10;
-        if (player.health <= 0) {
-            player.health = 0;
-            socket.emit("removeRunes", player.sessionId);
-            if (!match.launch) respawnTime = Date.now();
-            if (gameState.players.indexOf(attacker) == 0) {
-                socket.emit("addFrag");
-                msg.txt = "Pwnage! " + player.username + " is out for the count!";
-                msg.time = Date.now();
-            }
-            if (gameState.players.indexOf(player) == 0) {
-                msg.txt = "Oh no! " + attacker.username + " just pwned you!";
-                msg.time = Date.now();
-            }
-        }
-    }
+    // async function playerHit(player, attacker) {
+    //     // console.log(player.username + ": " + player.health)
+    //     if (player.health <= 0 || player.scroll == 5) return;
+    //     player.hit = 20;
+    //     player.health -= (attacker.scroll == 3) ? 20 : 10;
+    //     if (player.health <= 0) {
+    //         player.health = 0;
+    //         socket.emit("removeRunes", player.sessionId);
+    //         if (!match.launch) respawnTime = Date.now();
+    //         if (gameState.players.indexOf(attacker) == 0) {
+    //             socket.emit("addFrag");
+    //             msg.txt = "Pwnage! " + player.username + " is out for the count!";
+    //             msg.time = Date.now();
+    //         }
+    //         if (gameState.players.indexOf(player) == 0) {
+    //             msg.txt = "Oh no! " + attacker.username + " just pwned you!";
+    //             msg.time = Date.now();
+    //         }
+    //     }
+    // }
 
     function rectCollision(rect1x, rect1y, rect1w, rect1h, rect2x, rect2y, rect2w, rect2h) {
         return (
@@ -569,6 +570,7 @@
             // Start the match
             if (Date.now() > match.launchTime + 3000) {
                 messages.matchLaunch = "";
+                match.results.length = 0;
                 match.launchTime = 0;
                 match.startTime = Date.now();
                 respawn();
@@ -585,7 +587,8 @@
             match.ended = !0;
             match.startTime = 0;
             // gameState.players[0].entryTime = 0;
-            for (let i = 1; i < gameState.players.length; i++) {
+            for (let i = 0; i < gameState.players.length; i++) {
+                match.results.push({player: gameState.players[i].username, score: gameState.players[i].frags, deaths: gameState.players[i].deaths});
                 gameState.players[i].entryTime = 0;
             }
         }
@@ -665,6 +668,7 @@
                             gameState.players[j].lastHitBy = gameState.players[i].sessionId;
                             gameState.players[j].lastHitByScroll = gameState.players[i].scroll;
                         }
+                        gameState.players[j].hit = 10;
                         if (!r.remove) r.remove = true;
                     }
                 }
@@ -751,10 +755,10 @@
             write("Player", 20, 32)
             write("Score", 200, 32)
             write("Deaths", 250, 32)
-            gameState.players.forEach((player, i) => {
-                write(player.username, 20, 50 + i * 20);
-                write(player.frags, 220, 50 + i * 20);
-                write(player.deaths, 270, 50 + i * 20);
+            match.results.forEach((r, i) => {
+                write(r.player, 20, 50 + i * 20);
+                write(r.score, 220, 50 + i * 20);
+                write(r.deaths, 270, 50 + i * 20);
             });
         } else {
             // Render floor and walls
@@ -942,37 +946,9 @@
         }
     }
 
-    // function respawn(player) {
-    //     if (gameState.players.indexOf(player) !== 0) return;
-    //     const now = Date.now();
-    //     let t = 3;
-    //     if (now - respawnTime > 1000) t = 2;
-    //     if (now - respawnTime > 2000) t = 1;
-    //     if (now - respawnTime > 3000) t = 0;
-    //     if (t) {
-    //         // write(((match.launch) ? "Match starting" : "Respawn") + " in... " + ((t == 1) ? " " + t : t), gW / 2, gH / 5, '#fff', 2, 1);
-    //         write(((match.launch) ? "Match starting" : "Respawn") + " in... " + t, gW / 2, gH / 5, '#fff', 2, 1);
-    //     } else {
-    //         const r = Math.floor(Math.random() * 3);
-    //         player.health = 100;
-    //         player.dead = !1;
-    //         player.scroll = 0;
-    //         player.hit = 0;
-    //         player.x = respawnPoints[r].x;
-    //         player.y = respawnPoints[r].y;
-    //         if (!match.running) {
-    //             player.frags = 0;
-    //             player.deaths = 0;
-    //         }
-    //         // if (match.launch) {
-    //         //     match.launch = !1;
-    //         //     match.running = !0;
-    //         //     match.startTime = Date.now();
-    //         // }
-    //     }
-    // }
-    
     function renderPlayer(player) {
+        // Don't display players who haven't entered the dungeon
+        if (player.entryTime == 0) return;
         // Render player sprite
         if (player.health <= 0) {
             bCtx.drawImage(sprites, 0, spriteSize, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
@@ -1000,6 +976,7 @@
             bCtx.restore();
         }
         
+        // Display opponents' names and health bars if they aren't invisible 
         if (gameState.players.indexOf(player) > 0 && player.scroll != 5) {
             // Display name
             write(player.username, player.x - gameState.viewport.x + spriteSize / 2, player.y - gameState.viewport.y - spriteSize, '#fff', 1, true);
