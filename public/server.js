@@ -167,9 +167,12 @@ let chat = [];
 const maxChats = 20;
 const maxChatChars = 40;
 let timer = null;
-let matchStartTime = 0;
+// let matchStartTime = 0;
 
-let matchRunning = !1;
+let match = {
+    launchTime: 0,
+    startTime: 0
+}
 
 function gameUpdate() {
     // On first call there are no items so spawn one at each spawn point
@@ -229,7 +232,9 @@ module.exports = {
         // console.log("Connected: " + socket.id);
 
         gameUpdate();
-        
+
+        // socket.emit('matchUpdate', match);
+
         socket.on("disconnect", () => {
             io.sockets.emit('playerDisconnect', socket.id);
         });
@@ -246,6 +251,14 @@ module.exports = {
             io.sockets.emit('addProjectile', socket.id, projectile);
         });
 
+        socket.on("matchUpdate", (newMatch) => {
+            match = Object.assign(match, newMatch);
+        });
+
+        socket.on("getMatchStatus", () => {
+            if (match.launchTime > 0 || match.startTime > 0) io.sockets.emit('setMatchStatus', socket.id, match);
+        });
+
         socket.on("claimItem", (id, type) => {
             // console.log('got state update', player)
             let i = items.findIndex(o => {
@@ -256,6 +269,7 @@ module.exports = {
                 items[i].type = 0;
             }
             io.sockets.emit('claimItem', type, socket.id);
+            io.sockets.emit('itemUpdate', items);
         });
 
         socket.on("stateUpdate", (player) => {
@@ -272,7 +286,7 @@ module.exports = {
         });
         
         socket.on("startMatch", () => {
-            matchStartTime = Date.now();
+            // matchStartTime = Date.now();
             io.sockets.emit('startMatch');
         });
 

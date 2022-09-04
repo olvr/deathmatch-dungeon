@@ -53,16 +53,18 @@
     const msg = {txt: "", time: 0};
     const scrolls = ["fireball","ricochet","split shot","double damage","runic hex", "invisibility"];
     const respawnPoints = [{x: 16, y: 248},{x: 16, y: 304},{x: 480, y: 248},{x: 480, y: 304}];
+    let clickTimeout = 0;
 
-    const match = {
-        duration: 180,
-        launch: !1,
-        running: !1,
+    let match = {
+        duration: 60,
+        // running: !1,
         startTime: 0,
         ended: !1,
         launchTime: 0,
-        results: []
+        // results: []
     }
+
+    let results = [];
 
     const messages = {
         matchLaunch: ""
@@ -276,6 +278,10 @@
             connected = true;
             gameState.players[0].sessionId = socket.id;
         });
+        
+        // socket.on('matchUpdate', function(newMatch) {
+        //     match = Object.assign(match, newMatch);
+        // });
 
         socket.on('playerDisconnect', function(sessionId) {
             console.log("Player disconnected: " + sessionId);
@@ -346,10 +352,14 @@
             if (i != -1) gameState.players[i].projectiles.push(projectile);
         });
         
+        socket.on('setMatchStatus', function (sessionId, newMatch) {
+            let i = gameState.players.findIndex(o => {
+                return o.sessionId === sessionId;
+            });
+            if (i ==0) match = Object.assign(match, newMatch);
+        });
+        
         socket.on('startMatch', function () {
-            // console.log('start match')
-            match.startTime = Date.now();
-            match.launch = !0;
             match.launchTime = Date.now();
         });
 
@@ -379,7 +389,7 @@
                 if (player.entryTime > gameState.players[0].entryTime) {
                     msg.txt = player.username + " entered the dungeon";
                     msg.time = Date.now();
-                    if (!match.running) socket.emit('startMatch');  
+                    if (match.startTime == 0) socket.emit('startMatch');  
                 }
             }
         });
@@ -446,14 +456,19 @@
         });
     
         document.addEventListener("mousedown", e => {
-            if (gameState.players[0].dead) {
+            if (gameState.players[0].dead && Date.now() > clickTimeout + 1000) {
+                clickTimeout = 0;
                 messages.respawn = "";
                 respawn();
             }
-            if (match.ended) {
+            if (match.ended && Date.now() > clickTimeout + 5000) {
+            // if (match.ended) {
+                console.log("click on ended");
+                clickTimeout = 0;
                 match.ended = !1;
-                gameState.players[0].active = !0;
-                gameState.players[0].entryTime = Date.now();
+                // gameState.players[0].active = !0;
+                // gameState.players[0].entryTime = Date.now();
+                join();
                 respawn()
             }
             if (!gameState.players[0].active || Date.now() < prevMouseDown + 100) return;
@@ -565,16 +580,18 @@
     function gameUpdate() {
         // Check for match starting
         if (match.launchTime > 0) {
+            socket.emit("matchUpdate", match);
             let countdown = 3 - Math.floor((Date.now() - match.launchTime) / 1000);
             messages.matchLaunch = "Match launch in " + countdown;
             // Start the match
             if (Date.now() > match.launchTime + 3000) {
                 messages.matchLaunch = "";
-                match.results.length = 0;
+                if (gameState.players[0].entryTime > 0) results.length = 0;
                 match.launchTime = 0;
                 match.startTime = Date.now();
+                socket.emit("matchUpdate", match);
                 respawn();
-                match.running = !0;
+                // match.running = !0;
                 for (let i = 1; i < gameState.players.length; i++) {
                     gameState.players[i].frags = 0;
                     gameState.players[i].deaths = 0;
@@ -582,23 +599,29 @@
             }
         }
         // Check for match ending
-        if (match.running && Date.now() > match.startTime + match.duration * 1000) {
-            match.running = !1;
+        if (match.startTime > 0 && Date.now() > match.startTime + match.duration * 1000) {
+            // match.running = !1;
             match.ended = !0;
             match.startTime = 0;
-            // gameState.players[0].entryTime = 0;
+            socket.emit("matchUpdate", match);
+            clickTimeout = Date.now();
+            if (gameState.players[0].entryTime > 0) {
+                for (let i = 0; i < gameState.players.length; i++) {
+                    // Temporarily save the match results
+                    if (gameState.players[i].entryTime > 0) results.push({player: gameState.players[i].username, score: gameState.players[i].frags, deaths: gameState.players[i].deaths});
+                }
+            }
             for (let i = 0; i < gameState.players.length; i++) {
-                match.results.push({player: gameState.players[i].username, score: gameState.players[i].frags, deaths: gameState.players[i].deaths});
+                // Set all players' entry times and runes to zero
                 gameState.players[i].entryTime = 0;
+                gameState.players[i].runes.length = 0;
             }
         }
 
         // Check if match should be launched
-        if (!match.ended && !match.running && match.launchTime == 0) {
+        if (!match.ended && match.startTime == 0 && match.launchTime == 0) {
             for (let i = 1; i < gameState.players.length; i++) {
-                // console.log(gameState.players[i].entryTime)
                 if (gameState.players[i].entryTime > 0 && gameState.players[i].entryTime > gameState.players[0].entryTime) {
-                    // console.log(gameState.players[i].entryTime, gameState.players[0].entryTime)
                     socket.emit('startMatch');
                     break;
                 }
@@ -692,6 +715,7 @@
             // console.log("im dead")
             gameState.players[0].dead = !0;
             messages.respawn = "Press fire to respawn";
+            clickTimeout = Date.now();
             socket.emit("removeRunes");
             socket.emit("addFrag", gameState.players[0].lastHitBy);
             gameState.players[0].deaths++;
@@ -755,11 +779,19 @@
             write("Player", 20, 32)
             write("Score", 200, 32)
             write("Deaths", 250, 32)
-            match.results.forEach((r, i) => {
+            results.sort((a,b) => {
+                if (a.score == b.score) {
+                    return a.deaths - b.deaths;
+                } else {
+                    return b.score - a.score;
+                }
+            });
+            results.forEach((r, i) => {
                 write(r.player, 20, 50 + i * 20);
                 write(r.score, 220, 50 + i * 20);
                 write(r.deaths, 270, 50 + i * 20);
             });
+            if (Date.now() > clickTimeout + 5000) write("Press fire to enter the dungeon", gW / 2, 150, "#fff", 2 , 1); 
         } else {
             // Render floor and walls
             let startCol = Math.floor(gameState.viewport.x / map.tileSize);
@@ -842,27 +874,19 @@
                 write(msg.txt, gW / 2, 5, '#fff', 1, 1);
             };
 
-            if (gameState.players.length == 1 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for players", gW / 2, gH / 5, '#fff', 2, 1);
-
-            if (match.launch) {
-                // if (respawnTime == 0) respawnTime = Date.now();
-                // respawn(gameState.players[0]);
-
-                // let t = (3 - Math.floor((Date.now() - match.startTime) / 1000));
-                // write("Match starting in... " + ((t > 1) ? t : " " + t), gW / 2, gH / 5, '#fff', 2, 1)
-            }
+            if (match.launchTime == 0 && match.startTime == 0 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for players", gW / 2, gH / 5, '#fff', 2, 1);
 
             //
             if (Date.now() < match.launchTime + 3000) {
                 write(messages.matchLaunch, gW / 2, 140, '#0f0', 2, 1);
             }
             
-            if (gameState.players[0].dead) {
+            if (gameState.players[0].dead && Date.now() > clickTimeout + 1000) {
                 write(messages.respawn, gW / 2, 150, '#0f0', 2, 1);
             }
 
             // Render match timer
-            if (match.running) {
+            if (match.startTime > 0) {
                 let s = Math.floor((Date.now() - match.startTime) / 1000);
                 s = match.duration - s;
                 if (s >= 0) { 
@@ -940,7 +964,7 @@
         player.hit = 0;
         player.x = respawnPoints[r].x;
         player.y = respawnPoints[r].y;
-        if (!match.running) {
+        if (match.startTime == 0) {
             player.frags = 0;
             player.deaths = 0;
         }
@@ -1015,12 +1039,19 @@
         requestAnimationFrame(loop);
     }
 
-    function init() {
-        titleScreen = !1;
+    function join() {
         gameState.players[0].active = !0;
         gameState.players[0].entryTime = Date.now();
-        bindSocket();
+        socket.emit("getMatchStatus");
+    }
+
+    function init() {
+        titleScreen = !1;
         gameState.viewport.following = gameState.players[0];
+        // gameState.players[0].active = !0;
+        // gameState.players[0].entryTime = Date.now();
+        bindSocket();
+        join();
         respawn();
         requestAnimationFrame(loop);
     }
