@@ -811,8 +811,8 @@
             cCtx.globalAlpha = 1;
             cCtx.save();
             cCtx.beginPath();
-            for (let c = startCol; c <= endCol; c++) {
-                for (let r = startRow; r <= endRow; r++) {
+            for (let c = startCol - 3; c <= endCol + 3; c++) {
+                for (let r = startRow - 3; r <= endRow + 3; r++) {
                     let x = (c - startCol) * 16 + offsetX;
                     let y = (r - startRow) * 16 + offsetY;
                     if (map.getTile(c, r) == 6 || map.getTile(c, r) == 7) {
@@ -1114,7 +1114,7 @@
             bCtx.drawImage(spriteSheet, 0, 0, 112, 64, 0, 0, 112, 64);
             const imageData = bCtx.getImageData(0, 0, 112, 64);
             for (let i = 0; i < imageData.data.length; i += 4) {
-                if (imageData.data[i] == "0" && imageData.data[i + 1] == "0" && imageData.data[i + 2] == "254") {
+                if (imageData.data[i] < 5 && imageData.data[i + 1] < 5 && imageData.data[i + 2] > 250) {
                     imageData.data[i + 3] = 0;
                 }
             }
