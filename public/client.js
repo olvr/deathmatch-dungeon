@@ -1111,13 +1111,14 @@
         // Load sprite sheet and make #00f transparent
         spriteSheet.onload = async function() {
             bCtx.imageSmoothingEnabled = false;
-            bCtx.drawImage(spriteSheet, 0, 0);
+            bCtx.drawImage(spriteSheet, 0, 0, 112, 64, 0, 0, 112, 64);
             const imageData = bCtx.getImageData(0, 0, 112, 64);
             for (let i = 0; i < imageData.data.length; i += 4) {
-                if (imageData.data[i] == "0" && imageData.data[i + 1] == "0" && imageData.data[i + 2] == "255") {
+                if (imageData.data[i] == "0" && imageData.data[i + 1] == "0" && imageData.data[i + 2] == "254") {
                     imageData.data[i + 3] = 0;
                 }
             }
+            bCtx.clearRect(0, 0, gW, gH);
             bCtx.putImageData(imageData, 0, 0);
             sprites = await createImageBitmap(bCanvas);
             renderTitle();
