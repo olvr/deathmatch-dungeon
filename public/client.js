@@ -70,6 +70,13 @@
         matchLaunch: ""
     }
 
+    const msg2 = {
+        killed: {
+            txt: "",
+            time: 0
+        }
+    }
+
     const map = {
         cols: 32,
         rows: 35,
@@ -287,8 +294,9 @@
             console.log("Player disconnected: " + sessionId);
             for (let i = 0; i < gameState.players.length; i++) {
                 if (gameState.players[i].sessionId == sessionId) {
-                    msg.txt = gameState.players[i].username + " left the dungeon";
-                    msg.time = Date.now();
+                    // msg.txt = gameState.players[i].username + " left the dungeon";
+                    // msg.time = Date.now();
+                    socket.emit("chat", 1, gameState.players[i].username + " left the dungeon");
                     gameState.players.splice(i, 1);
                 }
             }
@@ -298,12 +306,15 @@
             chat.chats = updateChat;
         });
 
-        socket.on('addFrag', function (id) {
+        socket.on('addFrag', function (id, username) {
             let i = gameState.players.findIndex(o => {
                 return o.sessionId === id;
             });
             if (i != -1) gameState.players[i].frags += 1;
-            // console.log("Frags: " + gameState.players[0].frags)
+            if (i == 0) {
+                msg2.killed.txt = "You killed " + username + "!";
+                msg2.killed.time = Date.now();
+            } 
         });
 
         socket.on('itemUpdate', function (updateItems) {
@@ -326,6 +337,7 @@
                     gameState.players[0].scroll = type - 1;
                     msg.txt = "You picked up a scroll of " + scrolls[type - 1];
                     msg.time = Date.now();
+                    if (type == 6) socket.emit("chat", 2, gameState.players[0].username + " just turned invisible");
                 }
             }
         });
@@ -387,9 +399,12 @@
                 // New player
                 gameState.players.push(player);
                 if (player.entryTime > gameState.players[0].entryTime) {
-                    msg.txt = player.username + " entered the dungeon";
-                    msg.time = Date.now();
-                    if (match.startTime == 0) socket.emit('startMatch');  
+                    // msg.txt = player.username + " entered the dungeon";
+                    // msg.time = Date.now();
+                    socket.emit("chat", 1, player.username + " entered the dungeon");
+                    if (match.startTime == 0) {
+                        socket.emit('startMatch');
+                    }  
                 }
             }
         });
@@ -414,7 +429,8 @@
                 if (e.key == "Backspace" && chat.txt.length) chat.txt = chat.txt.substring(0, chat.txt.length - 1);
                 if (e.key == "Enter") {
                     if (chat.txt.length) {
-                        socket.emit("chat", gameState.players[0].username + ": " + chat.txt);
+                        // socket.emit("chat", gameState.players[0].username + ": " + chat.txt);
+                        socket.emit("chat", 0, chat.txt, gameState.players[0].username);
                         chat.active = false;
                         chat.txt = "";
                     } else {
@@ -458,7 +474,6 @@
         document.addEventListener("mousedown", e => {
             if (gameState.players[0].dead && Date.now() > clickTimeout + 1000) {
                 clickTimeout = 0;
-                messages.respawn = "";
                 respawn();
             }
             if (match.ended && Date.now() > clickTimeout + 5000) {
@@ -580,16 +595,16 @@
     function gameUpdate() {
         // Check for match starting
         if (match.launchTime > 0) {
-            socket.emit("matchUpdate", match);
+            if (gameState.players[0].entryTime > 0) socket.emit("matchUpdate", match);
             let countdown = 3 - Math.floor((Date.now() - match.launchTime) / 1000);
-            messages.matchLaunch = "Match launch in " + countdown;
+            messages.matchLaunch = "The match is about to begin... " + countdown;
             // Start the match
             if (Date.now() > match.launchTime + 3000) {
-                messages.matchLaunch = "";
+                messages.matchLaunch = "The match has begun!";
                 if (gameState.players[0].entryTime > 0) results.length = 0;
                 match.launchTime = 0;
                 match.startTime = Date.now();
-                socket.emit("matchUpdate", match);
+                if (gameState.players[0].entryTime > 0) socket.emit("matchUpdate", match);
                 respawn();
                 // match.running = !0;
                 for (let i = 1; i < gameState.players.length; i++) {
@@ -598,14 +613,18 @@
                 }
             }
         }
-        // Check for match ending
+
+        if (match.startTime > 0 && Date.now() > match.startTime + 3000) messages.matchLaunch = ""; 
+
+        // Check for match end
         if (match.startTime > 0 && Date.now() > match.startTime + match.duration * 1000) {
             // match.running = !1;
             match.ended = !0;
             match.startTime = 0;
-            socket.emit("matchUpdate", match);
+            if (gameState.players[0].entryTime > 0) socket.emit("matchUpdate", match);
             clickTimeout = Date.now();
             if (gameState.players[0].entryTime > 0) {
+                results.length = 0;
                 for (let i = 0; i < gameState.players.length; i++) {
                     // Temporarily save the match results
                     if (gameState.players[i].entryTime > 0) results.push({player: gameState.players[i].username, score: gameState.players[i].frags, deaths: gameState.players[i].deaths});
@@ -637,7 +656,7 @@
                 for (let j = 0; j < gameState.players.length; j++) {
                     if (i == j) continue; // Don't check own projectiles (TODO: unless it's ricochet?)
                     // if (gameState.players[j].scroll == 5 || gameState.players[j].health < 1) continue;
-                    if (gameState.players[j].scroll == 5) continue;
+                    if (gameState.players[j].scroll == 5 || gameState.players[j].dead) continue;
                     if (p.x < gameState.players[j].x + spriteSize
                         && p.x + projectileSize > gameState.players[j].x
                         && p.y < gameState.players[j].y + spriteSize
@@ -699,25 +718,51 @@
             gameState.players[i].runes = gameState.players[i].runes.filter(r => {
                 return (r.remove !== true);
             });
-            if (gameState.players[i].dead) {
-                let index = gameState.players.findIndex(o => {
-                    return o.sessionId === gameState.players[i].lastHitBy;
-                });
-                if (index != -1) {
-                    msg.txt = gameState.players[i].username + " got rekt by " + gameState.players[index].username + "'s " + scrolls[gameState.players[i].lastHitByScroll];
-                    msg.time = Date.now();
-                }
-            }
+
+            // if (gameState.players[i].dead && gameState.players[i].lastHitBy != "") {
+
+            //     let index = gameState.players.findIndex(o => {
+            //         return o.sessionId === gameState.players[i].lastHitBy;
+            //     });
+            //     if (index != -1) {
+            //         // msg.txt = gameState.players[i].username + " got rekt by " + gameState.players[index].username + "'s " + scrolls[gameState.players[i].lastHitByScroll];
+            //         // msg.time = Date.now();
+
+            //         socket.emit("chat", 2, gameState.players[i].username + " got rekt by " + gameState.players[index].username + "'s " + scrolls[gameState.players[i].lastHitByScroll]);
+                    
+                    
+            //     }
+            // }
+
+            // if (gameState.players[i].dead && gameState.players[i].lastHitBy != "") {
+            //     let index = gameState.players.findIndex(o => {
+            //         return o.sessionId === gameState.players[i].lastHitBy;
+            //     });
+            //     if (index == 0) {
+            //         gameState.players[i].lastHitBy = "";
+            //         msg2.killed.txt = "You killed " + gameState.players[i].username;
+            //         msg2.killed.time = Date.now();
+            //     }
+            // }
+            
         }
 
-        // console.log(gameState.players[0].health, gameState.players[0].dead) ;
         if (gameState.players[0].health <= 0 && !gameState.players[0].dead) {
             // console.log("im dead")
             gameState.players[0].dead = !0;
+            let index = gameState.players.findIndex(o => {
+                return o.sessionId === gameState.players[0].lastHitBy;
+            });
+
+            if (index != -1) {
+                let style = ["rekt", "fried", "zapped", "burned up", "nuked", "wasted", "derezzed"];
+                socket.emit("chat", 2, gameState.players[0].username + " got " + style[Math.floor(Math.random() * style.length)] + " by " + gameState.players[index].username + "'s " + scrolls[gameState.players[0].lastHitByScroll]);
+                messages.killedBy = "You were killed by " + gameState.players[index].username + "!";
+            }
             messages.respawn = "Press fire to respawn";
             clickTimeout = Date.now();
             socket.emit("removeRunes");
-            socket.emit("addFrag", gameState.players[0].lastHitBy);
+            socket.emit("addFrag", gameState.players[0].lastHitBy, gameState.players[0].username);
             gameState.players[0].deaths++;
             if (match.launchTime == 0) respawnTime = Date.now();
         }
@@ -874,15 +919,25 @@
                 write(msg.txt, gW / 2, 5, '#fff', 1, 1);
             };
 
-            if (match.launchTime == 0 && match.startTime == 0 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for players", gW / 2, gH / 5, '#fff', 2, 1);
+            if (match.launchTime == 0 && match.startTime == 0 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for other players", gW / 2 + 1, 140, '#05d', 2, 1);
 
-            //
-            if (Date.now() < match.launchTime + 3000) {
-                write(messages.matchLaunch, gW / 2, 140, '#0f0', 2, 1);
+            // Display match launch phase message
+            // if (Date.now() < match.launchTime + 3000) {
+            if (messages.matchLaunch != "") {
+                write(messages.matchLaunch, gW / 2, 140, '#05d', 2, 1);
             }
-            
+
+            if (messages.killedBy != "") {
+                write(messages.killedBy, gW / 2, 20, '#f00', 1, 1);
+            }
+
+            if (Date.now() < msg2.killed.time + 3000) {
+                write(msg2.killed.txt, gW / 2, 20, '#05d', 1, 1);
+            }
+
+            // Click to respawn message
             if (gameState.players[0].dead && Date.now() > clickTimeout + 1000) {
-                write(messages.respawn, gW / 2, 150, '#0f0', 2, 1);
+                write(messages.respawn, gW / 2, 2, '#fff', 2, 1);
             }
 
             // Render match timer
@@ -907,8 +962,11 @@
 
         // Render chats
         if (chat.chats && chat.chats.length) {
+            let colors = ["#fd0", "#fff", "#0e0"];
             for (let i = 0; i < chat.chats.length; i++) {
-                write(chat.chats[chat.chats.length - 1 - i], 0, 174 - i * 7, '#fff', 1);
+                let chatTxt = chat.chats[chat.chats.length - 1 - i];
+                let color = colors[chatTxt.slice(0, 1)[0]];
+                write(chatTxt.slice(1), 0, 174 - i * 7, color, 1);
             }
         }
 
@@ -964,7 +1022,9 @@
         player.hit = 0;
         player.x = respawnPoints[r].x;
         player.y = respawnPoints[r].y;
-        if (match.startTime == 0) {
+        messages.killedBy = "";
+        messages.respawn = "";
+        if (match.startTime == 0 || player.entryTime == 0) {
             player.frags = 0;
             player.deaths = 0;
         }
@@ -976,7 +1036,6 @@
         // Render player sprite
         if (player.health <= 0) {
             bCtx.drawImage(sprites, 0, spriteSize, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
-            // respawn(player);
         } else {
             // Flip the player sprite if it is facing left
             bCtx.save();

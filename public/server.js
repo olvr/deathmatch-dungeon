@@ -276,12 +276,20 @@ module.exports = {
             io.sockets.emit('stateUpdate', player);
         });
         
-        socket.on("chat", (updateTxt) => {
-            let [user, ...rest] = updateTxt.split(":");
-            updateTxt = rest.join(":");
-            // console.log("received " + updateTxt);
-            if (chat.push({txt: user + ": " + updateTxt.substring(0, maxChatChars + 1), time: Date.now()}) > maxChats) chat.splice(0, 1);
-            // console.log(chat);
+        // socket.on("chat", (updateTxt, type = 0) => {
+        //     let [user, ...rest] = updateTxt.split(":");
+        //     updateTxt = rest.join(":");
+        //     if (chat.push({txt: user + ": " + updateTxt.substring(0, maxChatChars + 1), time: Date.now()}) > maxChats) chat.splice(0, 1);
+        //     io.sockets.emit('chat', chat.map(i => i.txt));
+        // });
+
+        socket.on("chat", (type, updateTxt, user = "") => {
+            // let [user, ...rest] = updateTxt.split(":");
+            // updateTxt = rest.join(":");
+            updateTxt = updateTxt.substring(0, maxChatChars + 1);
+            updateTxt = type + ((type == 0) ? user + ": " : "") + updateTxt;
+            // if (chat.push({txt: user + ": " + updateTxt.substring(0, maxChatChars + 1), time: Date.now()}) > maxChats) chat.splice(0, 1);
+            if (chat.push({txt: updateTxt, time: Date.now()}) > maxChats) chat.splice(0, 1);
             io.sockets.emit('chat', chat.map(i => i.txt));
         });
         
@@ -290,8 +298,8 @@ module.exports = {
             io.sockets.emit('startMatch');
         });
 
-        socket.on("addFrag", (id) => {
-            io.sockets.emit('addFrag', id);
+        socket.on("addFrag", (id, username) => {
+            io.sockets.emit('addFrag', id, username);
         });
         
     },
