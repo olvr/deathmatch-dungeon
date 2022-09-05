@@ -706,7 +706,7 @@
                     if (rectCollision(gameState.players[j].x, gameState.players[j].y, spriteSize, spriteSize, r.x, r.y, spriteSize, spriteSize)) {
                         // if (!r.remove) playerHit(gameState.players[j], gameState.players[i]);
                         if (j == 0 && !r.remove && gameState.players[j].health > 0) {
-                            gameState.players[j].health -= 10;
+                            gameState.players[j].health -= 20;
                             gameState.players[j].lastHitBy = gameState.players[i].sessionId;
                             gameState.players[j].lastHitByScroll = gameState.players[i].scroll;
                         }
@@ -755,7 +755,7 @@
             });
 
             if (index != -1) {
-                let style = ["rekt", "fried", "zapped", "burned up", "nuked", "wasted", "derezzed"];
+                let style = ["rekt", "fried", "zapped", "burned", "nuked", "wasted", "derezzed"];
                 socket.emit("chat", 2, gameState.players[0].username + " got " + style[Math.floor(Math.random() * style.length)] + " by " + gameState.players[index].username + "'s " + scrolls[gameState.players[0].lastHitByScroll]);
                 messages.killedBy = "You were killed by " + gameState.players[index].username + "!";
             }
