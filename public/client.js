@@ -18,8 +18,6 @@
     const gW = 320;
     const gH = 180;
     let scale;
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
     const canvas = document.createElement("canvas");
     canvas.setAttribute("width", gW);
     canvas.setAttribute("height", gH);
@@ -57,11 +55,9 @@
 
     let match = {
         duration: 180,
-        // running: !1,
         startTime: 0,
         ended: !1,
         launchTime: 0,
-        // results: []
     }
 
     let results = [];
@@ -82,42 +78,9 @@
         rows: 35,
         tileSize: 16,
         wallOffset: 7, // Where the walls start in the tile type array
-        tiles: [
-            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
-            0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
-            0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,0,
-            0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        tiles: [],
+        hex: [
+            '0', '7e000', '1ffff80', '1ffff80', '187e180', '7f87e1fe', '7f8001fe', '7f8001fe', '7ffffffe', '7ffffffe', '7ffffffe', '7f8181fe', '7f8181fe', 'c018030', 'c018030', '7ffffffe', '7ffffffe', '7ffffffe', '7ffffffe', '7ffffffe', 'c018030', 'c018030', '7f8181fe', '7f8181fe', '7ffffffe', '7ffffffe', '7ffffffe', '7f8001fe', '7f8001fe', '7f87e1fe', '187e180', '1ffff80', '1ffff80', '7e000', '0'
         ],
         getTile: function(col, row) {
             return this.tiles[row * this.cols + col];
@@ -135,9 +98,9 @@
         getSourceCoords: function(tile) {
             if (tile > 0 && tile < 5) return {x: tile * this.tileSize, y: this.tileSize * 2};
 
-            if (tile == 5) return {x: 112, y: 48};
+            if (tile == 5) return {x: 80, y: 16};
             if (tile == 6) return {x: 96, y: 48};
-            if (tile == 7) return {x: 128, y: 48};
+            if (tile == 7) return {x: 96, y: 16};
 
             // Left wall
             if (tile == 4 + this.wallOffset) return {x: 0, y: 48};
@@ -146,18 +109,15 @@
             // Bottom wall
             if (tile == 1 + this.wallOffset) return {x: 16, y: 48};
             // Top wall
-            // if (tile == 8 + 4) return {x: 64, y: 48};
-            if (tile == 8 + this.wallOffset) return {x: 112, y: 32};
+            if (tile == 8 + this.wallOffset) return {x: 80, y: 0};
             
             // Floor at top and left
             if (tile == 3 + this.wallOffset) return {x: 80, y: 32};
             // Floor at top and right
             if (tile == 5 + this.wallOffset) return {x: 0, y: 32};
             // Floor at bottom and right
-            // if (tile == 12 + 4) return {x: 80, y: 48};
-            if (tile == 12 + this.wallOffset) return {x: 128, y: 32};
+            if (tile == 12 + this.wallOffset) return {x: 96, y: 0};
             // Floor bottom and left
-            // if (tile == 10 + 4) return {x: 48, y: 48};
             if (tile == 10 + this.wallOffset) return {x: 96, y: 32};
             
             // Floor bottom right
@@ -165,6 +125,11 @@
             // if (tile == 64 + this.wallOffset) return {x: 32, y: 48};
         }
     }
+
+    // Convert hex map data to binary
+    map.hex.forEach(h => {
+        map.tiles = map.tiles.concat(Array.from(parseInt(h, 16).toString(2).padStart(32, 0)));
+    });
 
     // Update map to set tiles to use
     for (let i = 0; i < map.tiles.length; i++) {
@@ -179,10 +144,10 @@
             if (Math.abs(map.getTile(mapX - 1, mapY) - 2.5) < 2.5) bitMask += 2;
             if (Math.abs(map.getTile(mapX + 1, mapY) - 2.5) < 2.5) bitMask += 4;
             
-            if (bitMask == 0) {
-                if (Math.abs(map.getTile(mapX - 1, mapY + 1) - 2.5) < 2.5) bitMask = 64;
-                if (Math.abs(map.getTile(mapX + 1, mapY + 1) - 2.5) < 2.5) bitMask = 128;
-            }
+            // if (bitMask == 0) {
+            //     if (Math.abs(map.getTile(mapX - 1, mapY + 1) - 2.5) < 2.5) bitMask = 64;
+            //     if (Math.abs(map.getTile(mapX + 1, mapY + 1) - 2.5) < 2.5) bitMask = 128;
+            // }
             if (bitMask > 0) map.tiles[i] = bitMask + map.wallOffset;
         } else if (map.tiles[i] == 1)  {
             // Set this tile to a random floor tile
@@ -200,7 +165,8 @@
         if (map.getTile(mapX, mapY - 1) == 12 + map.wallOffset) map.tiles[i] = 7;
     }
 
-    let sprites = new Image();
+    let spriteSheet = new Image();
+    let sprites;
 
     const gameState = {
         players: [
@@ -237,7 +203,8 @@
         }
     }
 
-    const myPlayerId = gameState.players[0].playerId;
+    const p0 = gameState.players[0];
+    const myPlayerId = p0.playerId;
 
     function resizeCanvas() {
         if (window.innerWidth < gW || window.innerHeight < gH) {
@@ -283,7 +250,7 @@
         socket.on('connect', function() {
             console.log("Connected: " + socket.id);
             connected = true;
-            gameState.players[0].sessionId = socket.id;
+            p0.sessionId = socket.id;
         });
         
         // socket.on('matchUpdate', function(newMatch) {
@@ -328,16 +295,16 @@
             if (i == 0) {
                 // Item claimed is a potion
                 if (type == 1) {
-                    gameState.players[0].health = Math.min(gameState.players[0].health + 50, 100);
+                    p0.health = Math.min(p0.health + 50, 100);
                     msg.txt = "Potion restores health";
                     msg.time = Date.now();
                 }
                 // Item claimed is a scroll
                 else if (type > 1) {
-                    gameState.players[0].scroll = type - 1;
+                    p0.scroll = type - 1;
                     msg.txt = "You picked up a scroll of " + scrolls[type - 1];
                     msg.time = Date.now();
-                    if (type == 6) socket.emit("chat", 2, gameState.players[0].username + " just turned invisible");
+                    if (type == 6) socket.emit("chat", 2, p0.username + " just turned invisible");
                 }
             }
         });
@@ -376,10 +343,8 @@
         });
 
         socket.on('stateUpdate', function (player) {
-            if (player.playerId === myPlayerId) {
-                // Ignore own update
-                return;
-            }
+            // Ignore own update
+            if (player.playerId === myPlayerId) return;
 
             let playerWasFound = false;
             for (let i = 0; i < gameState.players.length; ++i) {
@@ -398,11 +363,11 @@
             if (!playerWasFound) {
                 // New player
                 gameState.players.push(player);
-                if (player.entryTime > gameState.players[0].entryTime) {
+                if (player.entryTime > p0.entryTime) {
                     // msg.txt = player.username + " entered the dungeon";
                     // msg.time = Date.now();
                     socket.emit("chat", 1, player.username + " entered the dungeon");
-                    if (match.startTime == 0) {
+                    if (match.startTime == 0 && p0.entryTime > 0) {
                         socket.emit('startMatch');
                     }  
                 }
@@ -429,20 +394,20 @@
                 if (e.key == "Backspace" && chat.txt.length) chat.txt = chat.txt.substring(0, chat.txt.length - 1);
                 if (e.key == "Enter") {
                     if (chat.txt.length) {
-                        // socket.emit("chat", gameState.players[0].username + ": " + chat.txt);
-                        socket.emit("chat", 0, chat.txt, gameState.players[0].username);
+                        // socket.emit("chat", p0.username + ": " + chat.txt);
+                        socket.emit("chat", 0, chat.txt, p0.username);
                         chat.active = false;
                         chat.txt = "";
                     } else {
                         chat.active = false;
                     }
                 }
-            } else if (!gameState.players[0].active) {
+            } else if (!p0.active) {
                 if (e.key.match(regex)) {
-                    if (gameState.players[0].username.length < 11) gameState.players[0].username += e.key;
+                    if (p0.username.length < 11) p0.username += e.key;
                 }
-                if (e.key == "Backspace" && gameState.players[0].username.length > 0) gameState.players[0].username = gameState.players[0].username.substring(0, gameState.players[0].username.length - 1);
-                if (e.key == "Enter" && gameState.players[0].username.length) {
+                if (e.key == "Backspace" && p0.username.length > 0) p0.username = p0.username.substring(0, p0.username.length - 1);
+                if (e.key == "Enter" && p0.username.length) {
                     init();
                 }
                 renderTitle();
@@ -467,12 +432,12 @@
             // gameState.players.forEach(player => {
             // });
             // Face player based on mouse position
-            gameState.players[0].facing = (mouse.x < gW / 2) ? 0 : 1;
+            p0.facing = (mouse.x < gW / 2) ? 0 : 1;
 
         });
     
         document.addEventListener("mousedown", e => {
-            if (gameState.players[0].dead && Date.now() > clickTimeout + 1000) {
+            if (p0.dead && Date.now() > clickTimeout + 1000) {
                 clickTimeout = 0;
                 respawn();
             }
@@ -481,19 +446,19 @@
                 console.log("click on ended");
                 clickTimeout = 0;
                 match.ended = !1;
-                // gameState.players[0].active = !0;
-                // gameState.players[0].entryTime = Date.now();
+                // p0.active = !0;
+                // p0.entryTime = Date.now();
                 join();
                 respawn()
             }
-            if (!gameState.players[0].active || Date.now() < prevMouseDown + 100) return;
+            if (!p0.active || Date.now() < prevMouseDown + 100) return;
             prevMouseDown = Date.now();
 
-            if (e.buttons != 1 || gameState.players[0].health <= 0) return; // LMB is 1
+            if (e.buttons != 1 || p0.health <= 0) return; // LMB is 1
             // If invisible
-            if (gameState.players[0].scroll == 5) gameState.players[0].scroll = 0;
+            if (p0.scroll == 5) p0.scroll = 0;
             // If rune scroll
-            if (gameState.players[0].scroll == 4) {
+            if (p0.scroll == 4) {
                 let runeX = gameState.viewport.x + mouse.x;
                 let runeY = gameState.viewport.y + mouse.y;
                 runeX -= runeX % map.tileSize;
@@ -513,8 +478,8 @@
             }
 
             // Distance from mouse click to center of player sprite
-            let dx = mouse.x - (gameState.players[0].x - gameState.viewport.x) + spriteSize / 2 - spriteSize;
-            let dy = mouse.y - (gameState.players[0].y - gameState.viewport.y) + spriteSize / 2 - spriteSize;
+            let dx = mouse.x - (p0.x - gameState.viewport.x) + spriteSize / 2 - spriteSize;
+            let dy = mouse.y - (p0.y - gameState.viewport.y) + spriteSize / 2 - spriteSize;
 
             let mag = Math.sqrt(dx * dx + dy * dy);
             dx = dx / mag;
@@ -522,24 +487,24 @@
             
             // console.log(Math.atan2(dy, dx) * 180 / Math.PI);
             // console.log(Math.atan2(dy, dx));
-            gameState.players[0].angle = Math.atan2(dy, dx);
-            if (gameState.players[0].angle < 0) gameState.players[0].angle = Math.PI + (Math.PI + gameState.players[0].angle);
+            p0.angle = Math.atan2(dy, dx);
+            if (p0.angle < 0) p0.angle = Math.PI + (Math.PI + p0.angle);
 
             // console.log(dx/mag, dy/mag, mag);
             const projectile = {
-                x: gameState.players[0].x + spriteSize / 2 - projectileSize / 2 + Math.floor(dx * 10),
-                y: gameState.players[0].y + spriteSize / 2 - projectileSize / 2 + Math.floor(dy * 10),
+                x: p0.x + spriteSize / 2 - projectileSize / 2 + Math.floor(dx * 10),
+                y: p0.y + spriteSize / 2 - projectileSize / 2 + Math.floor(dy * 10),
                 vx: dx * projectileSpeed,
                 vy: dy * projectileSpeed,
-                angle: gameState.players[0].angle,
+                angle: p0.angle,
                 bounces: startBounces
             }
 
             // If not runic hex then emit projectile
-            if (gameState.players[0].scroll != 4) socket.emit("addProjectile", projectile);
+            if (p0.scroll != 4) socket.emit("addProjectile", projectile);
             
             // If player has the split shot magic scroll add other shots
-            if (gameState.players[0].scroll == 2) {
+            if (p0.scroll == 2) {
                 let multi = rotateVector([dx, dy], 10);
                 socket.emit("addProjectile", {x: projectile.x, y: projectile.y, vx: multi[0] * projectileSpeed, vy: multi[1] * projectileSpeed, bounces: 0});
                 multi = rotateVector([dx, dy], -10);
@@ -562,27 +527,6 @@
         // });
     }
 
-    // async function playerHit(player, attacker) {
-    //     // console.log(player.username + ": " + player.health)
-    //     if (player.health <= 0 || player.scroll == 5) return;
-    //     player.hit = 20;
-    //     player.health -= (attacker.scroll == 3) ? 20 : 10;
-    //     if (player.health <= 0) {
-    //         player.health = 0;
-    //         socket.emit("removeRunes", player.sessionId);
-    //         if (!match.launch) respawnTime = Date.now();
-    //         if (gameState.players.indexOf(attacker) == 0) {
-    //             socket.emit("addFrag");
-    //             msg.txt = "Pwnage! " + player.username + " is out for the count!";
-    //             msg.time = Date.now();
-    //         }
-    //         if (gameState.players.indexOf(player) == 0) {
-    //             msg.txt = "Oh no! " + attacker.username + " just pwned you!";
-    //             msg.time = Date.now();
-    //         }
-    //     }
-    // }
-
     function rectCollision(rect1x, rect1y, rect1w, rect1h, rect2x, rect2y, rect2w, rect2h) {
         return (
             rect1x < rect2x + rect2w &&
@@ -595,16 +539,16 @@
     function gameUpdate() {
         // Check for match starting
         if (match.launchTime > 0) {
-            if (gameState.players[0].entryTime > 0) socket.emit("matchUpdate", match);
+            if (p0.entryTime > 0) socket.emit("matchUpdate", match);
             let countdown = 3 - Math.floor((Date.now() - match.launchTime) / 1000);
             messages.matchLaunch = "The match is about to begin... " + countdown;
             // Start the match
             if (Date.now() > match.launchTime + 3000) {
                 messages.matchLaunch = "The match has begun!";
-                if (gameState.players[0].entryTime > 0) results.length = 0;
+                if (p0.entryTime > 0) results.length = 0;
                 match.launchTime = 0;
                 match.startTime = Date.now();
-                if (gameState.players[0].entryTime > 0) socket.emit("matchUpdate", match);
+                if (p0.entryTime > 0) socket.emit("matchUpdate", match);
                 respawn();
                 // match.running = !0;
                 for (let i = 1; i < gameState.players.length; i++) {
@@ -621,9 +565,9 @@
             // match.running = !1;
             match.ended = !0;
             match.startTime = 0;
-            if (gameState.players[0].entryTime > 0) socket.emit("matchUpdate", match);
+            if (p0.entryTime > 0) socket.emit("matchUpdate", match);
             clickTimeout = Date.now();
-            if (gameState.players[0].entryTime > 0) {
+            if (p0.entryTime > 0) {
                 results.length = 0;
                 for (let i = 0; i < gameState.players.length; i++) {
                     // Temporarily save the match results
@@ -640,8 +584,8 @@
         // Check if match should be launched
         if (!match.ended && match.startTime == 0 && match.launchTime == 0) {
             for (let i = 1; i < gameState.players.length; i++) {
-                if (gameState.players[i].entryTime > 0 && gameState.players[i].entryTime > gameState.players[0].entryTime) {
-                    socket.emit('startMatch');
+                if (gameState.players[i].entryTime > 0 && gameState.players[i].entryTime > p0.entryTime) {
+                    if (p0.entryTime > 0) socket.emit('startMatch');
                     break;
                 }
             }
@@ -665,11 +609,11 @@
                         // await playerHit(gameState.players[j], gameState.players[i]);
                         // Player hit
                         gameState.players[j].hit = 10;
-                        if (j == 0 && gameState.players[0].health > 0) {
-                            gameState.players[0].health -= (gameState.players[i].scroll == 3) ? 20 : 10;
-                            gameState.players[0].lastHitBy = gameState.players[i].sessionId;
-                            gameState.players[0].lastHitByScroll = gameState.players[i].scroll;
-                            // console.log(gameState.players[0].health);
+                        if (j == 0 && p0.health > 0) {
+                            p0.health -= (gameState.players[i].scroll == 3) ? 20 : 10;
+                            p0.lastHitBy = gameState.players[i].sessionId;
+                            p0.lastHitByScroll = gameState.players[i].scroll;
+                            // console.log(p0.health);
                         }
                     }
                 }
@@ -718,52 +662,24 @@
             gameState.players[i].runes = gameState.players[i].runes.filter(r => {
                 return (r.remove !== true);
             });
-
-            // if (gameState.players[i].dead && gameState.players[i].lastHitBy != "") {
-
-            //     let index = gameState.players.findIndex(o => {
-            //         return o.sessionId === gameState.players[i].lastHitBy;
-            //     });
-            //     if (index != -1) {
-            //         // msg.txt = gameState.players[i].username + " got rekt by " + gameState.players[index].username + "'s " + scrolls[gameState.players[i].lastHitByScroll];
-            //         // msg.time = Date.now();
-
-            //         socket.emit("chat", 2, gameState.players[i].username + " got rekt by " + gameState.players[index].username + "'s " + scrolls[gameState.players[i].lastHitByScroll]);
-                    
-                    
-            //     }
-            // }
-
-            // if (gameState.players[i].dead && gameState.players[i].lastHitBy != "") {
-            //     let index = gameState.players.findIndex(o => {
-            //         return o.sessionId === gameState.players[i].lastHitBy;
-            //     });
-            //     if (index == 0) {
-            //         gameState.players[i].lastHitBy = "";
-            //         msg2.killed.txt = "You killed " + gameState.players[i].username;
-            //         msg2.killed.time = Date.now();
-            //     }
-            // }
-            
         }
 
-        if (gameState.players[0].health <= 0 && !gameState.players[0].dead) {
-            // console.log("im dead")
-            gameState.players[0].dead = !0;
+        if (p0.health <= 0 && !p0.dead) {
+            p0.dead = !0;
             let index = gameState.players.findIndex(o => {
-                return o.sessionId === gameState.players[0].lastHitBy;
+                return o.sessionId === p0.lastHitBy;
             });
 
             if (index != -1) {
                 let style = ["rekt", "fried", "zapped", "burned", "nuked", "wasted", "derezzed"];
-                socket.emit("chat", 2, gameState.players[0].username + " got " + style[Math.floor(Math.random() * style.length)] + " by " + gameState.players[index].username + "'s " + scrolls[gameState.players[0].lastHitByScroll]);
+                socket.emit("chat", 2, p0.username + " got " + style[Math.floor(Math.random() * style.length)] + " by " + gameState.players[index].username + "'s " + scrolls[p0.lastHitByScroll]);
                 messages.killedBy = "You were killed by " + gameState.players[index].username + "!";
             }
             messages.respawn = "Press fire to respawn";
             clickTimeout = Date.now();
             socket.emit("removeRunes");
-            socket.emit("addFrag", gameState.players[0].lastHitBy, gameState.players[0].username);
-            gameState.players[0].deaths++;
+            socket.emit("addFrag", p0.lastHitBy, p0.username);
+            p0.deaths++;
             if (match.launchTime == 0) respawnTime = Date.now();
         }
 
@@ -771,14 +687,14 @@
         let itemIdClaimed = -1;
         for (let i = 0; i < items.length; i++) {
             // We picked up an item
-            if (rectCollision(gameState.players[0].x, gameState.players[0].y,spriteSize, spriteSize, items[i].x, items[i].y, spriteSize, spriteSize)) {
+            if (rectCollision(p0.x, p0.y,spriteSize, spriteSize, items[i].x, items[i].y, spriteSize, spriteSize)) {
                 itemIdClaimed = items[i].id;
                 if (connected) socket.emit('claimItem', itemIdClaimed, items[i].type);
                 items[i].type = 0;
             }
         }
 
-        let p = gameState.players[0];
+        let p = p0;
         if (p.health > 0) {
             // Move player - we are always the first element in our players array
             p.walking = 0;
@@ -811,7 +727,7 @@
         gameState.viewport.y = gameState.viewport.following.y - (gH / 2) + spriteSize / 2;
 
         // Update the server with the new state
-        if (connected) socket.emit('stateUpdate', gameState.players[0]);
+        if (connected) socket.emit('stateUpdate', p0);
     }
 
     function gameRender() {
@@ -864,10 +780,6 @@
             // Move the animation frame on for the torches
             flameFrame += 1;
 
-            // bCtx.font = "10px sans-serif";
-            // bCtx.fillStyle = "rgb(240, 240, 240)";
-            // bCtx.fillText("Mouse: " + mouse.x + ", " + mouse.y + " Player: " + gameState.players[0].x + ", " + gameState.players[0].y, 5, 10);
-
             // Render players and their projectiles
             gameState.players.forEach(player => {
                 // Render the runes
@@ -919,10 +831,9 @@
                 write(msg.txt, gW / 2, 5, '#fff', 1, 1);
             };
 
-            if (match.launchTime == 0 && match.startTime == 0 && Date.now() > gameState.players[0].entryTime + 1000) write("Waiting for other players", gW / 2 + 1, 140, '#05d', 2, 1);
+            if (match.launchTime == 0 && match.startTime == 0 && Date.now() > p0.entryTime + 1000) write("Waiting for other players", gW / 2 + 1, 140, '#05d', 2, 1);
 
             // Display match launch phase message
-            // if (Date.now() < match.launchTime + 3000) {
             if (messages.matchLaunch != "") {
                 write(messages.matchLaunch, gW / 2, 140, '#05d', 2, 1);
             }
@@ -936,7 +847,7 @@
             }
 
             // Click to respawn message
-            if (gameState.players[0].dead && Date.now() > clickTimeout + 1000) {
+            if (p0.dead && Date.now() > clickTimeout + 1000) {
                 write(messages.respawn, gW / 2, 2, '#fff', 2, 1);
             }
 
@@ -947,7 +858,6 @@
                 if (s >= 0) { 
                     let m = Math.floor(s / 60);
                     s = s % 60;
-                    // write(((m == 1) ? " " + m : m) + ":" + ((s < 10) ? "0" + s : s), 290, 2);
                     write(m + ":" + ((s < 10) ? "0" + s : s), 290, 2);
                 }
             }
@@ -972,9 +882,12 @@
 
         if (!match.ended) {
             // Render stats
-            bCtx.drawImage(sprites, 80, 0, 11, 10, 1, 2, 11, 10);
-            write(gameState.players[0].health, 14, 2, '#fff', 2);
+            bCtx.drawImage(sprites, 69, 0, 11, 10, 1, 2, 11, 10);
+            write(p0.health, 14, 2, '#fff', 2);
         }
+
+        // Crosshair
+        bCtx.drawImage(sprites, 0, 16, 5, 5, mouse.x - 3, mouse.y - 3, 5, 5);
 
         blit();
     }
@@ -1014,7 +927,7 @@
     }
 
     function respawn() {
-        const player = gameState.players[0];
+        const player = p0;
         const r = Math.floor(Math.random() * 3);
         player.health = 100;
         player.dead = !1;
@@ -1034,8 +947,9 @@
         // Don't display players who haven't entered the dungeon
         if (player.entryTime == 0) return;
         // Render player sprite
+        // Dead
         if (player.health <= 0) {
-            bCtx.drawImage(sprites, 0, spriteSize, spriteSize, spriteSize, player.x - gameState.viewport.x, player.y - gameState.viewport.y, spriteSize, spriteSize);
+            bCtx.drawImage(sprites, 0, 21, spriteSize, 11, player.x - gameState.viewport.x, player.y + 5 - gameState.viewport.y, spriteSize, 11);
         } else {
             // Flip the player sprite if it is facing left
             bCtx.save();
@@ -1099,16 +1013,16 @@
     }
 
     function join() {
-        gameState.players[0].active = !0;
-        gameState.players[0].entryTime = Date.now();
+        p0.active = !0;
+        p0.entryTime = Date.now();
         socket.emit("getMatchStatus");
     }
 
     function init() {
         titleScreen = !1;
-        gameState.viewport.following = gameState.players[0];
-        // gameState.players[0].active = !0;
-        // gameState.players[0].entryTime = Date.now();
+        gameState.viewport.following = p0;
+        // p0.active = !0;
+        // p0.entryTime = Date.now();
         bindSocket();
         join();
         respawn();
@@ -1125,18 +1039,20 @@
             flameSkew = (Math.floor(Math.random() * 3) - 1) / 5;
             flameFrame = 0;
         }
-        bCtx.drawImage(sprites, 96, 16, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
+        // bCtx.drawImage(sprites, 96, 16, spriteSize, spriteSize, x, y, spriteSize, spriteSize);
+        bCtx.drawImage(sprites, 64, 9, 7, 7, x + 4, y + 6, 7, 7);
         bCtx.save();
         bCtx.translate(x + flameSize, y + flameSize + 1);
         bCtx.transform(1, 0, flameSkew, flameStretch, 0, 0);
         bCtx.scale(1, -1);
-        bCtx.drawImage(sprites, 112, 16, flameSize, flameSize, 0, 0, flameSize, flameSize);
+        bCtx.drawImage(sprites, 75, 11, flameSize, flameSize, 0, 0, flameSize, flameSize);
         bCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset
         bCtx.restore();
     }
 
     function renderTitle(timestamp) {
         // let elapsed = (timestamp - oldTimeStamp) / 1000;
+        // return;
         bCtx.fillStyle = ("#000");
         bCtx.fillRect(0, 0, gW, gH);
         const x = [52, 64, 91, 100, 106, 112, 124, 145, 154, 166, 172, 184, 196, 202, 208, 217, 238, 250, 256, 262, 271];
@@ -1176,26 +1092,35 @@
             return (drip.remove !== true);
         });
 
-        let w = write("Enter your name: " + gameState.players[0].username, 49, 75, '#eee', 2, 0);
+        let w = write("Enter your name: " + p0.username, 49, 75, '#eee', 2, 0);
         bCtx.fillStyle = "#eee";
         bCtx.fillRect(w + 49 + 2, 75, 6, 10); // Cursor
         write("WASD/arrows to move, mouse to aim, click to shoot", 50, 120, '#eee', 1);
         write("Tab to chat", 50, 130, '#eee', 1);
+        // Crosshair
+        bCtx.drawImage(sprites, 0, 16, 5, 5, mouse.x - 3, mouse.y - 3, 5, 5);
         blit();
         if (titleScreen) requestAnimationFrame(renderTitle);
     }
     
-    function welcome() {
+    window.addEventListener("load", () => {
         bindEvents();
         document.body.appendChild(canvas);
         resizeCanvas();
-
-        sprites.onload = function() {
+        // Load sprite sheet and make #00f transparent
+        spriteSheet.onload = async function() {
+            bCtx.drawImage(spriteSheet, 0, 0);
+            const imageData = bCtx.getImageData(0, 0, 112, 64);
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                if (imageData.data[i] == "0" && imageData.data[i + 1] == "0" && imageData.data[i + 2] == "255") {
+                    imageData.data[i + 3] = 0;
+                }
+            }
+            bCtx.putImageData(imageData, 0, 0);
+            sprites = await createImageBitmap(bCanvas);
             renderTitle();
         }
-        sprites.src = "./sprites.png";
-    }
-
-    window.addEventListener("load", welcome, false);
+        spriteSheet.src = "./sprites.png";
+    });
 
 // })();
