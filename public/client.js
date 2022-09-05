@@ -558,6 +558,7 @@
             }
         }
 
+        // Clear match launch message
         if (match.startTime > 0 && Date.now() > match.startTime + 3000) messages.matchLaunch = ""; 
 
         // Check for match end
@@ -590,6 +591,38 @@
                 }
             }
         }
+
+        let p = p0;
+        if (p.health > 0) {
+            // Move player - we are always the first element in our players array
+            p.walking = 0;
+            if ((keyboardState.w || keyboardState.ArrowUp) && map.canMoveToXY(p.x, p.y - playerSpeed) && map.canMoveToXY(p.x + spriteSize - 1, p.y - playerSpeed)){
+                p.y -= playerSpeed;
+                p.walking = 1;
+            }
+            
+            if ((keyboardState.a || keyboardState.ArrowLeft) && map.canMoveToXY(p.x - playerSpeed, p.y) && map.canMoveToXY(p.x - playerSpeed, p.y + spriteSize - 1)) {
+                p.x -= playerSpeed;
+                p.walking = 1;
+            }
+                
+            if ((keyboardState.s || keyboardState.ArrowDown) && map.canMoveToXY(p.x, p.y + playerSpeed + spriteSize - 1) && map.canMoveToXY(p.x + spriteSize - 1, p.y + playerSpeed + spriteSize - 1)) {
+                p.y += playerSpeed;
+                p.walking = 1;
+            }
+                
+            if ((keyboardState.d || keyboardState.ArrowRight) && map.canMoveToXY(p.x + playerSpeed + spriteSize - 1, p.y) && map.canMoveToXY(p.x + playerSpeed + spriteSize - 1, p.y + spriteSize - 1)) {
+                p.x += playerSpeed;
+                p.walking = 1;
+            }
+
+            // Move to the next walking frame or idle
+            p.frame = (p.frame < 3 && p.walking == 1) ? p.frame += 0.075 : 0;
+        }
+
+        // Move viewport offset to follow player
+        gameState.viewport.x = gameState.viewport.following.x - (gW / 2) + spriteSize / 2;
+        gameState.viewport.y = gameState.viewport.following.y - (gH / 2) + spriteSize / 2;
 
         // Update projectiles
         for (let i = 0; i < gameState.players.length; i++) {
@@ -693,38 +726,6 @@
                 items[i].type = 0;
             }
         }
-
-        let p = p0;
-        if (p.health > 0) {
-            // Move player - we are always the first element in our players array
-            p.walking = 0;
-            if ((keyboardState.w || keyboardState.ArrowUp) && map.canMoveToXY(p.x, p.y - playerSpeed) && map.canMoveToXY(p.x + spriteSize - 1, p.y - playerSpeed)){
-                p.y -= playerSpeed;
-                p.walking = 1;
-            }
-            
-            if ((keyboardState.a || keyboardState.ArrowLeft) && map.canMoveToXY(p.x - playerSpeed, p.y) && map.canMoveToXY(p.x - playerSpeed, p.y + spriteSize - 1)) {
-                p.x -= playerSpeed;
-                p.walking = 1;
-            }
-                
-            if ((keyboardState.s || keyboardState.ArrowDown) && map.canMoveToXY(p.x, p.y + playerSpeed + spriteSize - 1) && map.canMoveToXY(p.x + spriteSize - 1, p.y + playerSpeed + spriteSize - 1)) {
-                p.y += playerSpeed;
-                p.walking = 1;
-            }
-                
-            if ((keyboardState.d || keyboardState.ArrowRight) && map.canMoveToXY(p.x + playerSpeed + spriteSize - 1, p.y) && map.canMoveToXY(p.x + playerSpeed + spriteSize - 1, p.y + spriteSize - 1)) {
-                p.x += playerSpeed;
-                p.walking = 1;
-            }
-
-            // Move to the next walking frame or idle
-            p.frame = (p.frame < 3 && p.walking == 1) ? p.frame += 0.075 : 0;
-        }
-
-        // Move viewport offset to follow player
-        gameState.viewport.x = gameState.viewport.following.x - (gW / 2) + spriteSize / 2;
-        gameState.viewport.y = gameState.viewport.following.y - (gH / 2) + spriteSize / 2;
 
         // Update the server with the new state
         if (connected) socket.emit('stateUpdate', p0);
@@ -1109,6 +1110,7 @@
         resizeCanvas();
         // Load sprite sheet and make #00f transparent
         spriteSheet.onload = async function() {
+            bCtx.imageSmoothingEnabled = false;
             bCtx.drawImage(spriteSheet, 0, 0);
             const imageData = bCtx.getImageData(0, 0, 112, 64);
             for (let i = 0; i < imageData.data.length; i += 4) {
