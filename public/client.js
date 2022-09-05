@@ -56,7 +56,7 @@
     let clickTimeout = 0;
 
     let match = {
-        duration: 60,
+        duration: 180,
         // running: !1,
         startTime: 0,
         ended: !1,
