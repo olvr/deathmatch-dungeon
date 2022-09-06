@@ -53,6 +53,16 @@
     const respawnPoints = [{x: 16, y: 248},{x: 16, y: 304},{x: 480, y: 248},{x: 480, y: 304}];
     let clickTimeout = 0;
 
+    const sounds = {
+        // fire: ,
+        // rune: ,
+        // hit: ,
+        // ouch: ,
+        // dead: ,
+        scroll: [1.01,,749,.1,.09,.14,1,1.03,,,100,.03,-0.02,,,,.11,.7,.07],
+        potion: [1.03,,146,,.02,.12,1,.6,-8.6,-6.3,,,,,,,,.8,.02,.15],
+    }
+
     let match = {
         duration: 180,
         startTime: 0,
@@ -295,14 +305,14 @@
             if (i == 0) {
                 // Item claimed is a potion
                 if (type == 1) {
-                    zzfx(...[1.03,,146,,.02,.12,1,.6,-8.6,-6.3,,,,,,,,.8,.02,.15]);
+                    zzfx(...sounds.potion);
                     p0.health = Math.min(p0.health + 50, 100);
                     msg.txt = "Potion restores health";
                     msg.time = Date.now();
                 }
                 // Item claimed is a scroll
                 else if (type > 1) {
-                    zzfx(...[1.01,,749,.1,.09,.14,1,1.03,,,100,.03,-0.02,,,,.11,.7,.07]);
+                    zzfx(...sounds.scroll);
                     p0.scroll = type - 1;
                     msg.txt = "You picked up a scroll of " + scrolls[type - 1];
                     msg.time = Date.now();
@@ -651,8 +661,9 @@
                         // Player hit
                         gameState.players[j].hit = 10;
                         // zzfx(...[.5,0,260,.01,.04,.07,4,4.7,,,,,,.4,,.3,.12,.4,.05,.01]);
-                        zzfx(...[.3,0,260,,.1,.07,4,4.7,,,,,,.4,,.4,.12,.3,.02,.01]);
+                        if (j != 0) zzfx(...[.3,0,260,,.1,.07,4,4.7,,,,,,.4,,.4,.12,.3,.02,.01]);
                         if (j == 0 && p0.health > 0) {
+                            zzfx(...[.5,,499,,.15,.04,,1.47,4.5,-6.8,,,.17,.5,,.3,.13,.73,.04,.12]);
                             p0.health -= (gameState.players[i].scroll == 3) ? 20 : 10;
                             p0.lastHitBy = gameState.players[i].sessionId;
                             p0.lastHitByScroll = gameState.players[i].scroll;
