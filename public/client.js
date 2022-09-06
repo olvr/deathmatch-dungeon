@@ -295,12 +295,14 @@
             if (i == 0) {
                 // Item claimed is a potion
                 if (type == 1) {
+                    zzfx(...[1.03,,146,,.02,.12,1,.6,-8.6,-6.3,,,,,,,,.8,.02,.15]);
                     p0.health = Math.min(p0.health + 50, 100);
                     msg.txt = "Potion restores health";
                     msg.time = Date.now();
                 }
                 // Item claimed is a scroll
                 else if (type > 1) {
+                    zzfx(...[1.01,,749,.1,.09,.14,1,1.03,,,100,.03,-0.02,,,,.11,.7,.07]);
                     p0.scroll = type - 1;
                     msg.txt = "You picked up a scroll of " + scrolls[type - 1];
                     msg.time = Date.now();
@@ -437,6 +439,7 @@
         });
     
         document.addEventListener("mousedown", e => {
+            // zzfx(...[,,20,.04,,.6,,1.31,,,-990,.06,.17,,,.04,.07])
             if (p0.dead && Date.now() > clickTimeout + 1000) {
                 clickTimeout = 0;
                 respawn();
@@ -473,6 +476,7 @@
 
                 // Only place runes on floor tiles
                 if (map.canMoveToXY(runeX, runeY)) {
+                    zzfx(...[.2,0,267,.1,.06,,,1.49,4.3,-0.8,,,,2,,.3,.15,.52,.05]);
                     socket.emit("addRune", {x: runeX, y: runeY, remove: !1});
                 }
             }
@@ -501,7 +505,11 @@
             }
 
             // If not runic hex then emit projectile
-            if (p0.scroll != 4) socket.emit("addProjectile", projectile);
+            if (p0.scroll != 4) {
+                // zzfx(...[.5,0,135,.01,.02,.01,2,1.44,1.3,,-50,.02,.01,,,.2,,.2,.07,.2]);
+                zzfx(...[.2,0,192,,,.4,4,4,,.6,,,,.6,,.4,,.3,.1,.05]);
+                socket.emit("addProjectile", projectile);
+            }
             
             // If player has the split shot magic scroll add other shots
             if (p0.scroll == 2) {
@@ -642,6 +650,8 @@
                         // await playerHit(gameState.players[j], gameState.players[i]);
                         // Player hit
                         gameState.players[j].hit = 10;
+                        // zzfx(...[.5,0,260,.01,.04,.07,4,4.7,,,,,,.4,,.3,.12,.4,.05,.01]);
+                        zzfx(...[.3,0,260,,.1,.07,4,4.7,,,,,,.4,,.4,.12,.3,.02,.01]);
                         if (j == 0 && p0.health > 0) {
                             p0.health -= (gameState.players[i].scroll == 3) ? 20 : 10;
                             p0.lastHitBy = gameState.players[i].sessionId;
@@ -687,6 +697,7 @@
                             gameState.players[j].lastHitBy = gameState.players[i].sessionId;
                             gameState.players[j].lastHitByScroll = gameState.players[i].scroll;
                         }
+                        zzfx(...[.3,0,260,,.1,.07,4,4.7,,,,,,.4,,.4,.12,.3,.02,.01]);
                         gameState.players[j].hit = 10;
                         if (!r.remove) r.remove = true;
                     }
@@ -708,6 +719,9 @@
                 socket.emit("chat", 2, p0.username + " got " + style[Math.floor(Math.random() * style.length)] + " by " + gameState.players[index].username + "'s " + scrolls[p0.lastHitByScroll]);
                 messages.killedBy = "You were killed by " + gameState.players[index].username + "!";
             }
+            // zzfx(...[.4,0,808,.01,.5,.58,1,.7,,6.27,-50,.09,.17,,,,,.5]);
+            // zzfx(...[.2,0,808,.01,.4,.35,1,.7,,6.27,-50,.04,.02,,,,,.8]);
+            zzfx(...[.2,0,415,.01,.4,.35,1,.7,,6.27,-50,.04,.11,,,,,.5]); // Loaded Sound 402
             messages.respawn = "Press fire to respawn";
             clickTimeout = Date.now();
             socket.emit("removeRunes");
@@ -1125,5 +1139,22 @@
         }
         spriteSheet.src = "./sprites.png";
     });
+
+    // ZzFX - Zuper Zmall Zound Zynth - Micro Edition
+    // MIT License - Copyright 2019 Frank Force
+    // https://github.com/KilledByAPixel/ZzFX
+
+    // This is a tiny build of zzfx with only a zzfx function to play sounds.
+    // You can use zzfxV to set volume.
+    // There is a small bit of optional code to improve compatibility.
+    // Feel free to minify it further for your own needs!
+
+    let zzfx,zzfxV,zzfxX
+
+    // ZzFXMicro - Zuper Zmall Zound Zynth - v1.1.2
+    zzfxV=.3    // volume
+    zzfx=       // play sound
+    (p=1,k=.05,b=220,e=0,r=0,t=.1,q=0,D=1,u=0,y=0,v=0,z=0,l=0,E=0,A=0,F=0,c=0,w=1,m=0,B=0)=>{let M=Math,R=44100,d=2*M.PI,G=u*=500*d/R/R,C=b*=(1-k+2*k*M.random(k=[]))*d/R,g=0,H=0,a=0,n=1,I=0,J=0,f=0,x,h;e=R*e+9;m*=R;r*=R;t*=R;c*=R;y*=500*d/R**3;A*=d/R;v*=d/R;z*=R;l=R*l|0;for(h=e+m+r+t+c|0;a<h;k[a++]=f)++J%(100*F|0)||(f=q?1<q?2<q?3<q?M.sin((g%d)**3):M.max(M.min(M.tan(g),1),-1):1-(2*g/d%2+2)%2:1-4*M.abs(M.round(g/d)-g/d):M.sin(g),f=(l?1-B+B*M.sin(d*a/l):1)*(0<f?1:-1)*M.abs(f)**D*p*zzfxV*(a<e?a/e:a<e+m?1-(a-e)/m*(1-w):a<e+m+r?w:a<h-c?(h-a-c)/t*w:0),f=c?f/2+(c>a?0:(a<h-c?1:(h-a)/c)*k[a-c|0]/2):f),x=(b+=u+=y)*M.cos(A*H++),g+=x-x*E*(1-1E9*(M.sin(a)+1)%2),n&&++n>z&&(b+=v,C+=v,n=0),!l||++I%l||(b=C,u=G,n=n||1);p=zzfxX.createBuffer(1,h,R);p.getChannelData(0).set(k);b=zzfxX.createBufferSource();b.buffer=p;b.connect(zzfxX.destination);b.start();return b}
+    zzfxX=new(window.AudioContext||webkitAudioContext) // audio context
 
 // })();
