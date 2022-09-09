@@ -33,10 +33,10 @@
     cCanvas.height = gH;
     const cCtx = cCanvas.getContext("2d");
 
-    const keyboardState = {};
+    let keyboardState = {};
     const mouse = { x: 0, y: 0 };
-    const playerSpeed = 2; // was 1 at 120 fps
-    const projectileSpeed = 3; // was 2 at 120 fps
+    const playerSpeed = 2;
+    const projectileSpeed = 3;
     const spriteSize = 16;
     const projectileSize = 5;
     const maxRunes = 8;
@@ -48,35 +48,45 @@
     let flameSkew = 0;
 
     let items = [];
-    const msg = {txt: "", time: 0};
     const scrolls = ["fireball","ricochet","split shot","double damage","runic hex", "invisibility"];
     const respawnPoints = [{x: 16, y: 248},{x: 16, y: 304},{x: 480, y: 248},{x: 480, y: 304}];
     let clickTimeout = 0;
-
+    
     const sounds = {
-        // fire: ,
-        // rune: ,
-        // hit: ,
-        // ouch: ,
-        // dead: ,
+        fire: [.2,0,192,,,.4,4,4,,.6,,,,.6,,.4,,.3,.1,.05],
+        rune: [.2,0,267,.1,.06,,,1.49,4.3,-0.8,,,,2,,.3,.15,.52,.05],
+        hit: [.3,0,260,,.1,.07,4,4.7,,,,,,.4,,.4,.12,.3,.02,.01],
+        ouch: [.5,,499,,.15,.04,,1.47,4.5,-6.8,,,.17,.5,,.3,.13,.73,.04,.12],
+        dead: [.2,0,415,.01,.4,.35,1,.7,,6.27,-50,.04,.11,,,,,.5],
         scroll: [1.01,,749,.1,.09,.14,1,1.03,,,100,.03,-0.02,,,,.11,.7,.07],
         potion: [1.03,,146,,.02,.12,1,.6,-8.6,-6.3,,,,,,,,.8,.02,.15],
+        // frag: [.5,0,523.2511,,,.3,,1.2,,,500,.19,.24,,,,,.3,.05,.03]
+        frag: [.4,0,471,,.03,.43,4,1.06,-5.5,,,,,.9,61,.1,,.5,.02]
     }
-
+    
     let match = {
         duration: 180,
         startTime: 0,
         ended: !1,
         launchTime: 0,
     }
-
+    
     let results = [];
-
-    const messages = {
-        matchLaunch: ""
-    }
-
-    const msg2 = {
+    
+    const msg = {
+        matchLaunch: {
+            txt: ""
+        },
+        killedBy: {
+            txt: ""
+        },
+        respawn: {
+            txt: ""
+        },
+        item: {
+            txt: "",
+            time: 0
+        },
         killed: {
             txt: "",
             time: 0
@@ -271,8 +281,6 @@
             console.log("Player disconnected: " + sessionId);
             for (let i = 0; i < gameState.players.length; i++) {
                 if (gameState.players[i].sessionId == sessionId) {
-                    // msg.txt = gameState.players[i].username + " left the dungeon";
-                    // msg.time = Date.now();
                     socket.emit("chat", 1, gameState.players[i].username + " left the dungeon");
                     gameState.players.splice(i, 1);
                 }
@@ -289,8 +297,9 @@
             });
             if (i != -1) gameState.players[i].frags += 1;
             if (i == 0) {
-                msg2.killed.txt = "You killed " + username + "!";
-                msg2.killed.time = Date.now();
+                zzfx(...sounds.frag);
+                msg.killed.txt = "You killed " + username + "!";
+                msg.killed.time = Date.now();
             } 
         });
 
@@ -307,15 +316,15 @@
                 if (type == 1) {
                     zzfx(...sounds.potion);
                     p0.health = Math.min(p0.health + 50, 100);
-                    msg.txt = "Potion restores health";
-                    msg.time = Date.now();
+                    msg.item.txt = "Potion restores health";
+                    msg.item.time = Date.now();
                 }
                 // Item claimed is a scroll
                 else if (type > 1) {
                     zzfx(...sounds.scroll);
                     p0.scroll = type - 1;
-                    msg.txt = "You picked up a scroll of " + scrolls[type - 1];
-                    msg.time = Date.now();
+                    msg.item.txt = "You picked up a scroll of " + scrolls[type - 1];
+                    msg.item.time = Date.now();
                     if (type == 6) socket.emit("chat", 2, p0.username + " just turned invisible");
                 }
             }
@@ -332,15 +341,21 @@
             let i = gameState.players.findIndex(o => {
                 return o.sessionId === id;
             });
-            if (gameState.players[i].runes.length >= maxRunes) gameState.players[i].runes.splice(0, 1);
-            gameState.players[i].runes.push(rune);
+            if (i != -1) {
+                zzfx(...sounds.rune);
+                if (gameState.players[i].runes.length >= maxRunes) gameState.players[i].runes.splice(0, 1);
+                gameState.players[i].runes.push(rune);
+            }
         });
 
         socket.on('addProjectile', function (id, projectile) {
             let i = gameState.players.findIndex(o => {
                 return o.sessionId === id;
             });
-            if (i != -1) gameState.players[i].projectiles.push(projectile);
+            if (i != -1) {
+                gameState.players[i].projectiles.push(projectile);
+                zzfx(...sounds.fire);
+            }
         });
         
         socket.on('setMatchStatus', function (sessionId, newMatch) {
@@ -376,8 +391,6 @@
                 // New player
                 gameState.players.push(player);
                 if (player.entryTime > p0.entryTime) {
-                    // msg.txt = player.username + " entered the dungeon";
-                    // msg.time = Date.now();
                     socket.emit("chat", 1, player.username + " entered the dungeon");
                     if (match.startTime == 0 && p0.entryTime > 0) {
                         socket.emit('startMatch');
@@ -406,7 +419,6 @@
                 if (e.key == "Backspace" && chat.txt.length) chat.txt = chat.txt.substring(0, chat.txt.length - 1);
                 if (e.key == "Enter") {
                     if (chat.txt.length) {
-                        // socket.emit("chat", p0.username + ": " + chat.txt);
                         socket.emit("chat", 0, chat.txt, p0.username);
                         chat.active = false;
                         chat.txt = "";
@@ -440,30 +452,23 @@
             mouse.x = Math.round((e.clientX - canvas.getBoundingClientRect().left) / scale);
             mouse.y = Math.round((e.clientY - canvas.getBoundingClientRect().top) / scale);
             // angle = math.atan2(y2 - y1, x2 - x1) * 180 / math.pi;
-            // Show name and health only when hovered?
-            // gameState.players.forEach(player => {
-            // });
             // Face player based on mouse position
             p0.facing = (mouse.x < gW / 2) ? 0 : 1;
 
         });
     
         document.addEventListener("mousedown", e => {
-            // zzfx(...[,,20,.04,,.6,,1.31,,,-990,.06,.17,,,.04,.07])
             if (p0.dead && Date.now() > clickTimeout + 1000) {
                 clickTimeout = 0;
                 respawn();
             }
             if (match.ended && Date.now() > clickTimeout + 5000) {
-            // if (match.ended) {
-                console.log("click on ended");
                 clickTimeout = 0;
                 match.ended = !1;
-                // p0.active = !0;
-                // p0.entryTime = Date.now();
                 join();
                 respawn()
             }
+            if (p0.entryTime == 0) return;
             if (!p0.active || Date.now() < prevMouseDown + 100) return;
             prevMouseDown = Date.now();
 
@@ -486,7 +491,6 @@
 
                 // Only place runes on floor tiles
                 if (map.canMoveToXY(runeX, runeY)) {
-                    zzfx(...[.2,0,267,.1,.06,,,1.49,4.3,-0.8,,,,2,,.3,.15,.52,.05]);
                     socket.emit("addRune", {x: runeX, y: runeY, remove: !1});
                 }
             }
@@ -495,16 +499,14 @@
             let dx = mouse.x - (p0.x - gameState.viewport.x) + spriteSize / 2 - spriteSize;
             let dy = mouse.y - (p0.y - gameState.viewport.y) + spriteSize / 2 - spriteSize;
 
+            // Get a normalised vector
             let mag = Math.sqrt(dx * dx + dy * dy);
             dx = dx / mag;
             dy = dy / mag;
             
-            // console.log(Math.atan2(dy, dx) * 180 / Math.PI);
-            // console.log(Math.atan2(dy, dx));
             p0.angle = Math.atan2(dy, dx);
             if (p0.angle < 0) p0.angle = Math.PI + (Math.PI + p0.angle);
 
-            // console.log(dx/mag, dy/mag, mag);
             const projectile = {
                 x: p0.x + spriteSize / 2 - projectileSize / 2 + Math.floor(dx * 10),
                 y: p0.y + spriteSize / 2 - projectileSize / 2 + Math.floor(dy * 10),
@@ -516,8 +518,6 @@
 
             // If not runic hex then emit projectile
             if (p0.scroll != 4) {
-                // zzfx(...[.5,0,135,.01,.02,.01,2,1.44,1.3,,-50,.02,.01,,,.2,,.2,.07,.2]);
-                zzfx(...[.2,0,192,,,.4,4,4,,.6,,,,.6,,.4,,.3,.1,.05]);
                 socket.emit("addProjectile", projectile);
             }
             
@@ -559,16 +559,15 @@
         if (match.launchTime > 0) {
             if (p0.entryTime > 0) socket.emit("matchUpdate", match);
             let countdown = 3 - Math.floor((Date.now() - match.launchTime) / 1000);
-            messages.matchLaunch = "The match is about to begin... " + countdown;
+            msg.matchLaunch.txt = "The match is about to begin... " + countdown;
             // Start the match
             if (Date.now() > match.launchTime + 3000) {
-                messages.matchLaunch = "The match has begun!";
+                msg.matchLaunch.txt = "The match has begun!";
                 if (p0.entryTime > 0) results.length = 0;
                 match.launchTime = 0;
                 match.startTime = Date.now();
                 if (p0.entryTime > 0) socket.emit("matchUpdate", match);
                 respawn();
-                // match.running = !0;
                 for (let i = 1; i < gameState.players.length; i++) {
                     gameState.players[i].frags = 0;
                     gameState.players[i].deaths = 0;
@@ -577,11 +576,10 @@
         }
 
         // Clear match launch message
-        if (match.startTime > 0 && Date.now() > match.startTime + 3000) messages.matchLaunch = ""; 
+        if (match.startTime > 0 && Date.now() > match.startTime + 3000) msg.matchLaunch.txt = ""; 
 
         // Check for match end
         if (match.startTime > 0 && Date.now() > match.startTime + match.duration * 1000) {
-            // match.running = !1;
             match.ended = !0;
             match.startTime = 0;
             if (p0.entryTime > 0) socket.emit("matchUpdate", match);
@@ -649,25 +647,21 @@
                 p.y += p.vy;
                 // Check for collision with players
                 for (let j = 0; j < gameState.players.length; j++) {
-                    if (i == j) continue; // Don't check own projectiles (TODO: unless it's ricochet?)
-                    // if (gameState.players[j].scroll == 5 || gameState.players[j].health < 1) continue;
+                    if (i == j) continue; // Don't check own projectiles
                     if (gameState.players[j].scroll == 5 || gameState.players[j].dead) continue;
                     if (p.x < gameState.players[j].x + spriteSize
                         && p.x + projectileSize > gameState.players[j].x
                         && p.y < gameState.players[j].y + spriteSize
                         && projectileSize + p.y > gameState.players[j].y) {
                         p.remove = true;
-                        // await playerHit(gameState.players[j], gameState.players[i]);
                         // Player hit
                         gameState.players[j].hit = 10;
-                        // zzfx(...[.5,0,260,.01,.04,.07,4,4.7,,,,,,.4,,.3,.12,.4,.05,.01]);
-                        if (j != 0) zzfx(...[.3,0,260,,.1,.07,4,4.7,,,,,,.4,,.4,.12,.3,.02,.01]);
+                        if (j != 0) zzfx(...sounds.hit);
                         if (j == 0 && p0.health > 0) {
-                            zzfx(...[.5,,499,,.15,.04,,1.47,4.5,-6.8,,,.17,.5,,.3,.13,.73,.04,.12]);
+                            zzfx(...sounds.ouch);
                             p0.health -= (gameState.players[i].scroll == 3) ? 20 : 10;
                             p0.lastHitBy = gameState.players[i].sessionId;
                             p0.lastHitByScroll = gameState.players[i].scroll;
-                            // console.log(p0.health);
                         }
                     }
                 }
@@ -702,13 +696,14 @@
                     if (i == j) continue; // Don't check own runes
                     if (gameState.players[j].scroll == 5) continue;
                     if (rectCollision(gameState.players[j].x, gameState.players[j].y, spriteSize, spriteSize, r.x, r.y, spriteSize, spriteSize)) {
-                        // if (!r.remove) playerHit(gameState.players[j], gameState.players[i]);
                         if (j == 0 && !r.remove && gameState.players[j].health > 0) {
+                            zzfx(...sounds.ouch);
                             gameState.players[j].health -= 20;
                             gameState.players[j].lastHitBy = gameState.players[i].sessionId;
                             gameState.players[j].lastHitByScroll = gameState.players[i].scroll;
+                        } else {
+                            zzfx(...sounds.hit);
                         }
-                        zzfx(...[.3,0,260,,.1,.07,4,4.7,,,,,,.4,,.4,.12,.3,.02,.01]);
                         gameState.players[j].hit = 10;
                         if (!r.remove) r.remove = true;
                     }
@@ -726,14 +721,12 @@
             });
 
             if (index != -1) {
-                let style = ["rekt", "fried", "zapped", "burned", "nuked", "wasted", "derezzed"];
+                let style = ["rekt", "fried", "zapped", "burned", "nuked", "wasted"];
                 socket.emit("chat", 2, p0.username + " got " + style[Math.floor(Math.random() * style.length)] + " by " + gameState.players[index].username + "'s " + scrolls[p0.lastHitByScroll]);
-                messages.killedBy = "You were killed by " + gameState.players[index].username + "!";
+                msg.killedBy.txt = "You were killed by " + gameState.players[index].username + "!";
             }
-            // zzfx(...[.4,0,808,.01,.5,.58,1,.7,,6.27,-50,.09,.17,,,,,.5]);
-            // zzfx(...[.2,0,808,.01,.4,.35,1,.7,,6.27,-50,.04,.02,,,,,.8]);
-            zzfx(...[.2,0,415,.01,.4,.35,1,.7,,6.27,-50,.04,.11,,,,,.5]); // Loaded Sound 402
-            messages.respawn = "Press fire to respawn";
+            zzfx(...sounds.dead);
+            msg.respawn.txt = "Press fire to respawn";
             clickTimeout = Date.now();
             socket.emit("removeRunes");
             socket.emit("addFrag", p0.lastHitBy, p0.username);
@@ -792,7 +785,6 @@
             for (let c = startCol; c <= endCol; c++) {
                 for (let r = startRow; r <= endRow; r++) {
                     let tile = map.getTile(c, r);
-                    // console.log(tile, c, r);
                     let s = map.getSourceCoords(tile);
                     let x = (c - startCol) * 16 + offsetX;
                     let y = (r - startRow) * 16 + offsetY;
@@ -804,7 +796,7 @@
             }
 
             // Move the animation frame on for the torches
-            flameFrame += 1;
+            flameFrame++;
 
             // Render players and their projectiles
             gameState.players.forEach(player => {
@@ -852,29 +844,29 @@
             bCtx.drawImage(cCanvas, 0, 0, gW, gH, 0, 0, gW, gH);
 
             // Render messages
-            if (msg.txt) {
-                if (Date.now() > msg.time + 3000) msg.txt = "";
-                write(msg.txt, gW / 2, 5, '#fff', 1, 1);
+            if (msg.item.txt) {
+                if (Date.now() > msg.item.time + 3000) msg.item.txt = "";
+                write(msg.item.txt, gW / 2, 5, '#fff', 1, 1);
             };
 
             if (match.launchTime == 0 && match.startTime == 0 && Date.now() > p0.entryTime + 1000) write("Waiting for other players", gW / 2 + 1, 140, '#05d', 2, 1);
 
             // Display match launch phase message
-            if (messages.matchLaunch != "") {
-                write(messages.matchLaunch, gW / 2, 140, '#05d', 2, 1);
+            if (msg.matchLaunch.txt != "") {
+                write(msg.matchLaunch.txt, gW / 2, 140, '#05d', 2, 1);
             }
 
-            if (messages.killedBy != "") {
-                write(messages.killedBy, gW / 2, 20, '#f00', 1, 1);
+            if (msg.killedBy.txt != "") {
+                write(msg.killedBy.txt, gW / 2, 20, '#f00', 1, 1);
             }
 
-            if (Date.now() < msg2.killed.time + 3000) {
-                write(msg2.killed.txt, gW / 2, 20, '#05d', 1, 1);
+            if (Date.now() < msg.killed.time + 3000) {
+                write(msg.killed.txt, gW / 2, 20, '#05d', 1, 1);
             }
 
             // Click to respawn message
             if (p0.dead && Date.now() > clickTimeout + 1000) {
-                write(messages.respawn, gW / 2, 2, '#fff', 2, 1);
+                write(msg.respawn.txt, gW / 2, 2, '#fff', 2, 1);
             }
 
             // Render match timer
@@ -953,6 +945,7 @@
     }
 
     function respawn() {
+        keyboardState = {};
         const player = p0;
         const r = Math.floor(Math.random() * 3);
         player.health = 100;
@@ -961,8 +954,8 @@
         player.hit = 0;
         player.x = respawnPoints[r].x;
         player.y = respawnPoints[r].y;
-        messages.killedBy = "";
-        messages.respawn = "";
+        msg.killedBy.txt = "";
+        msg.respawn.txt = "";
         if (match.startTime == 0 || player.entryTime == 0) {
             player.frags = 0;
             player.deaths = 0;
