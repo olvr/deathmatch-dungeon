@@ -405,6 +405,7 @@
      */
     function bindEvents() {
         document.addEventListener("keydown", e => {
+            if (match.launchTime > 0) return;
             const reserveKeys = ["Tab"];
             let regex = /^[A-Za-z0-9\s\.\,\?\!\']$/;
             if (reserveKeys.includes(e.key) ) {
@@ -588,7 +589,7 @@
                 results.length = 0;
                 for (let i = 0; i < gameState.players.length; i++) {
                     // Temporarily save the match results
-                    if (gameState.players[i].entryTime > 0) results.push({player: gameState.players[i].username, score: gameState.players[i].frags, deaths: gameState.players[i].deaths});
+                    if (gameState.players[i].entryTime > 0) results.push({player: gameState.players[i].username, playerId: gameState.players[i].playerId, score: gameState.players[i].frags, deaths: gameState.players[i].deaths});
                 }
             }
             for (let i = 0; i < gameState.players.length; i++) {
@@ -756,6 +757,8 @@
         // Render match end screen
         if (match.ended) {
             write("match results", gW / 2, 2, "#fff", 3 , 1);
+            write("match results", gW / 2, 2 + 2, "#666", 3 , 1);
+            write("match results", gW / 2 + 1, 2 + 1, "#dd0a1e", 3 , 1);
             write("Player", 20, 32)
             write("Score", 200, 32)
             write("Deaths", 250, 32)
@@ -767,11 +770,16 @@
                 }
             });
             results.forEach((r, i) => {
-                write(r.player, 20, 50 + i * 20);
-                write(r.score, 220, 50 + i * 20);
-                write(r.deaths, 270, 50 + i * 20);
+                let color = (r.playerId == p0.playerId) ? "#fd0": "#fff";
+                write(r.player, 20, 50 + i * 20, color);
+                write(r.score, 220, 50 + i * 20, color);
+                write(r.deaths, 270, 50 + i * 20, color);
             });
-            if (Date.now() > clickTimeout + 5000) write("Press fire to enter the dungeon", gW / 2, 150, "#fff", 2 , 1); 
+            if (Date.now() > clickTimeout + 5000) {
+                write("Press fire to go back in the dungeon", gW / 2, 150, "#fff", 2 , 1);
+            } else {
+                write(results[0].player + " won the match", gW / 2, 150, "#fff", 2 , 1);
+            }
         } else {
             // Render floor and walls
             let startCol = Math.floor(gameState.viewport.x / map.tileSize);

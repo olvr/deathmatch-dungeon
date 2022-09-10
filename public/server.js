@@ -12,6 +12,9 @@ let match = {
     startTime: 0
 }
 
+/**
+ * Server game loop
+ */
 function gameUpdate() {
     // On first call there are no items so spawn one at each spawn point
     if (!items.length) itemSpawnPoints.forEach((spawnPoint, i) => {
@@ -23,6 +26,7 @@ function gameUpdate() {
             time: Date.now()
         });
     });
+    // If an item spawn point is empty and a fixed time has passed then spawn a random item there
     items.forEach(item => {
         if (item.type == 0 && Date.now() > item.time + 5000) item.type = (Math.random() < 0.5) ? 1 : Math.floor(Math.random() * 5) + 2;
     });
@@ -101,11 +105,5 @@ module.exports = {
         });
         
     },
-
-    // stat: (req, res) => {
-    //     storage.get('games', 0).then(games => {
-    //         res.send(`<h1>Games played: ${games}</h1>`);
-    //     });
-    // }
 
 };
