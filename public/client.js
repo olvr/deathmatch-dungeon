@@ -891,10 +891,19 @@
         // Render chats
         if (chat.chats && chat.chats.length) {
             let colors = ["#fd0", "#fff", "#0e0"];
+            let o = 0;
             for (let i = 0; i < chat.chats.length; i++) {
                 let chatTxt = chat.chats[chat.chats.length - 1 - i];
                 let color = colors[chatTxt.slice(0, 1)[0]];
-                write(chatTxt.slice(1), 0, 174 - i * 7, color, 1);
+                // let lines = chatTxt.slice(1).split(/(.{32})/).filter(O=>O);
+                let lines = chatTxt.slice(1).replace(/.{20}\S*\s+/g, "$&@").split(/\s+@/);
+                for (let j = 0; j < lines.length; j++) {
+                    // (174 - i * 7) is the y position if it is one line
+                    // - ((lines.length - 1) * 7) + (j * 7) is offset for wrapping multiple lines of one chat message
+                    // o is the offset to account for previous chats that took up multiple lines
+                    write(lines[j], 0, (174 - i * 7) - ((lines.length - 1) * 7) + (j * 7) - o, color, 1);
+                }
+                o += (lines.length - 1) * 7;
             }
         }
 

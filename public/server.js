@@ -4,7 +4,7 @@ const items = [];
 const itemSpawnPoints = [{x: 16, y: 88},{x: 208, y:80},{x: 288, y: 80}, {x: 480, y: 88},{x: 16, y: 464},{x: 208, y:472},{x: 288, y:472},{x: 480, y: 464}];
 let chat = [];
 const maxChats = 20;
-const maxChatChars = 40;
+const maxChatChars = 60;
 let timer = null;
 
 let match = {
