@@ -59,9 +59,8 @@
         ouch: [.5,,499,,.15,.04,,1.47,4.5,-6.8,,,.17,.5,,.3,.13,.73,.04,.12],
         dead: [.2,0,415,.01,.4,.35,1,.7,,6.27,-50,.04,.11,,,,,.5],
         scroll: [1.01,,749,.1,.09,.14,1,1.03,,,100,.03,-0.02,,,,.11,.7,.07],
-        potion: [1.03,,146,,.02,.12,1,.6,-8.6,-6.3,,,,,,,,.8,.02,.15],
-        // frag: [.5,0,523.2511,,,.3,,1.2,,,500,.19,.24,,,,,.3,.05,.03]
-        frag: [.4,0,471,,.03,.43,4,1.06,-5.5,,,,,.9,61,.1,,.5,.02]
+        potion: [1.1,,146,,.02,.12,1,.6,-8.6,-6.3,,,,,,,,.8,.02,.15],
+        frag: [.5,0,471,,.03,.43,4,1.06,-5.5,,,,,.9,61,.1,,.5,.02]
     }
     
     let match = {
@@ -195,7 +194,7 @@
                 entryTime: 0,
                 username: "",
                 playerId: Math.floor(Math.random() * 100000000),
-                sessionId: '',
+                sessionId: "",
                 x: 0, // World x coordinate
                 y: 0, // World y coordinate
                 hit: 0, // A timer to count down from when player is hit
@@ -289,6 +288,12 @@
 
         socket.on('chat', function (updateChat) {
             chat.chats = updateChat;
+        });
+
+        socket.on('getResults', function (updateResults) {
+            // results.length = 0;
+            results = updateResults;
+            console.log(results)
         });
 
         socket.on('addFrag', function (id, username) {
@@ -459,6 +464,7 @@
         });
     
         document.addEventListener("mousedown", e => {
+            if (e.buttons != 1) return; // LMB is 1
             if (p0.dead && Date.now() > clickTimeout + 1000) {
                 clickTimeout = 0;
                 respawn();
@@ -470,10 +476,13 @@
                 respawn()
             }
             if (p0.entryTime == 0) return;
-            if (!p0.active || Date.now() < prevMouseDown + 100) return;
+            // Rate limit the shooting, split shot is slower
+            let rateLimit = (p0.scroll == 2) ? 166 : 100;
+            if (!p0.active || Date.now() < prevMouseDown + rateLimit) return;
             prevMouseDown = Date.now();
 
-            if (e.buttons != 1 || p0.health <= 0) return; // LMB is 1
+            if (p0.health <= 0) return;
+
             // If invisible
             if (p0.scroll == 5) p0.scroll = 0;
             // If rune scroll
@@ -564,7 +573,7 @@
             // Start the match
             if (Date.now() > match.launchTime + 3000) {
                 msg.matchLaunch.txt = "The match has begun!";
-                if (p0.entryTime > 0) results.length = 0;
+                // if (p0.entryTime > 0) results.length = 0;
                 match.launchTime = 0;
                 match.startTime = Date.now();
                 if (p0.entryTime > 0) socket.emit("matchUpdate", match);
@@ -586,11 +595,12 @@
             if (p0.entryTime > 0) socket.emit("matchUpdate", match);
             clickTimeout = Date.now();
             if (p0.entryTime > 0) {
-                results.length = 0;
-                for (let i = 0; i < gameState.players.length; i++) {
-                    // Temporarily save the match results
-                    if (gameState.players[i].entryTime > 0) results.push({player: gameState.players[i].username, playerId: gameState.players[i].playerId, score: gameState.players[i].frags, deaths: gameState.players[i].deaths});
-                }
+                socket.emit("getResults");
+                // results.length = 0;
+                // for (let i = 0; i < gameState.players.length; i++) {
+                //     // Temporarily save the match results
+                //     if (gameState.players[i].entryTime > 0) results.push({player: gameState.players[i].username, playerId: gameState.players[i].playerId, score: gameState.players[i].frags, deaths: gameState.players[i].deaths});
+                // }
             }
             for (let i = 0; i < gameState.players.length; i++) {
                 // Set all players' entry times and runes to zero
@@ -699,7 +709,7 @@
                     if (rectCollision(gameState.players[j].x, gameState.players[j].y, spriteSize, spriteSize, r.x, r.y, spriteSize, spriteSize)) {
                         if (j == 0 && !r.remove && gameState.players[j].health > 0) {
                             zzfx(...sounds.ouch);
-                            gameState.players[j].health -= 20;
+                            gameState.players[j].health -= 25;
                             gameState.players[j].lastHitBy = gameState.players[i].sessionId;
                             gameState.players[j].lastHitByScroll = gameState.players[i].scroll;
                         } else {
@@ -730,7 +740,8 @@
             msg.respawn.txt = "Press fire to respawn";
             clickTimeout = Date.now();
             socket.emit("removeRunes");
-            socket.emit("addFrag", p0.lastHitBy, p0.username);
+            // socket.emit("addFrag", p0.lastHitBy, p0.username);
+            socket.emit("addFrag", p0.lastHitBy, gameState.players[index].username, p0.sessionId, p0.username);
             p0.deaths++;
             if (match.launchTime == 0) respawnTime = Date.now();
         }
@@ -755,7 +766,7 @@
         bCtx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Render match end screen
-        if (match.ended) {
+        if (match.ended && results.length > 0) {
             write("match results", gW / 2, 2, "#fff", 3 , 1);
             write("match results", gW / 2, 2 + 2, "#666", 3 , 1);
             write("match results", gW / 2 + 1, 2 + 1, "#dd0a1e", 3 , 1);
@@ -770,15 +781,17 @@
                 }
             });
             results.forEach((r, i) => {
-                let color = (r.playerId == p0.playerId) ? "#fd0": "#fff";
-                write(r.player, 20, 50 + i * 20, color);
+                let color = (r.id == p0.sessionId) ? "#fd0": "#fff";
+                write(r.username, 20, 50 + i * 20, color);
                 write(r.score, 220, 50 + i * 20, color);
                 write(r.deaths, 270, 50 + i * 20, color);
             });
             if (Date.now() > clickTimeout + 5000) {
-                write("Press fire to go back in the dungeon", gW / 2, 150, "#fff", 2 , 1);
+                write("Press fire to go back to the dungeon", gW / 2, 150, "#fff", 2 , 1);
+            } else if (results[0].score == results[1].score && results[0].deaths == results[1].deaths) {
+                write("The match was a draw", gW / 2, 150, "#fff", 2 , 1);
             } else {
-                write(results[0].player + " won the match", gW / 2, 150, "#fff", 2 , 1);
+                write(results[0].username + " won the match", gW / 2, 150, "#fff", 2 , 1);
             }
         } else {
             // Render floor and walls
@@ -1093,7 +1106,6 @@
         bCtx.fillRect(0, 0, gW, gH);
         const x = [52, 64, 91, 100, 106, 112, 124, 145, 154, 166, 172, 184, 196, 202, 208, 217, 238, 250, 256, 262, 271];
         for (let i = 0; i < 14; i++) {
-            // (Math.floor(Math.random() * 4) * 16) + 16
             bCtx.drawImage(sprites, 16, 32, spriteSize, spriteSize, 51 + i * spriteSize, 16, spriteSize, spriteSize);
         }
         bCtx.drawImage(sprites, 0, 0, spriteSize, spriteSize, 51, 16, spriteSize, spriteSize);
@@ -1103,6 +1115,10 @@
         bCtx.drawImage(sprites, 0, 0, spriteSize, spriteSize, 259, 16, spriteSize, spriteSize);
         bCtx.restore();
         
+        // for (let i = 0; i < 14; i++) {
+        //     bCtx.drawImage(sprites, 80, 0, spriteSize, spriteSize, 51 + i * spriteSize, 20, spriteSize, spriteSize);
+        //     bCtx.drawImage(sprites, 80, 16, spriteSize, spriteSize, 51 + i * spriteSize, 36, spriteSize, spriteSize);
+        // }
         write("Deathmatch Dungeon", gW / 2, gH / 5, '#fff', 3, 1);
         write("Deathmatch Dungeon", gW / 2, gH / 5 + 2, '#666', 3, 1);
         write("Deathmatch Dungeon", gW / 2 + 1, gH / 5 + 1, '#dd0a1e', 3, 1);

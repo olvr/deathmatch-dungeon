@@ -12,6 +12,8 @@ let match = {
     startTime: 0
 }
 
+let results = [];
+
 /**
  * Server game loop
  */
@@ -97,11 +99,25 @@ module.exports = {
         });
         
         socket.on("startMatch", () => {
+            results.length = 0;
             io.sockets.emit('startMatch');
         });
 
-        socket.on("addFrag", (id, username) => {
-            io.sockets.emit('addFrag', id, username);
+        socket.on("getResults", () => {
+            io.sockets.emit('getResults', results);
+        });
+
+        // socket.on("addFrag", (id, username) => {
+        socket.on("addFrag", (id, username, deadId, deadUsername) => {
+            io.sockets.emit('addFrag', id, deadUsername);
+            // Increase score of attacker
+            if (!results.some(e => { if (e.id === id) { e.score++; return true; }})) {
+                results.push({id: id, username: username, score: 1, deaths: 0});
+            }
+            // Increase deaths of dead player
+            if (!results.some(e => { if (e.id === deadId) { e.deaths++; return true; }})) {
+                results.push({id: deadId, username: deadUsername, score: 0, deaths: 1});
+            }
         });
         
     },
