@@ -878,7 +878,7 @@
             }
 
             if (msg.killedBy.txt != "") {
-                write(msg.killedBy.txt, gW / 2, 20, '#f00', 1, 1);
+                write(msg.killedBy.txt, gW / 2, 32, '#f00', 1, 1);
             }
 
             if (Date.now() < msg.killed.time + 3000) {
