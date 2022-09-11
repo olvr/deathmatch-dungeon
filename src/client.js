@@ -986,6 +986,7 @@
         player.y = respawnPoints[r].y;
         msg.killedBy.txt = "";
         msg.respawn.txt = "";
+        socket.emit("removeRunes");
         if (match.startTime == 0 || player.entryTime == 0) {
             player.frags = 0;
             player.deaths = 0;

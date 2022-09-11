@@ -107,7 +107,6 @@ module.exports = {
             io.sockets.emit('getResults', results);
         });
 
-        // socket.on("addFrag", (id, username) => {
         socket.on("addFrag", (id, username, deadId, deadUsername) => {
             io.sockets.emit('addFrag', id, deadUsername);
             // Increase score of attacker
